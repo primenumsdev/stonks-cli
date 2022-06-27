@@ -39,6 +39,7 @@ When user logged in, the app will show a dashboard.
 e.g.
 Welcome back, username!
 Last login: Date time in UTC
+---
 Total spent: 13456 USD
 Current evaluation: 15678 USD
 Portfolio performance: 5%

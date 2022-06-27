@@ -121,32 +121,11 @@
 
 (defn update [path cb]
   (if (vector? path)
-    (swap! state update-in path cb)
-    (swap! state update path cb))
+    (swap! state clojure.core/update-in path cb)
+    (swap! state clojure.core/update path cb))
   (swap! state assoc-in [:meta :has-changes?] true))
 
 (defn get [path]
   (if (vector? path)
     (get-in @state path)
     (path @state)))
-
-(comment
-
-  ;; create db
-  (create!
-    {:file-path "/Users/sergeykozachenko/.stonks/test.db"
-     :name      "test"
-     :password  "mypass"}
-    :override? true
-    :discard? true)
-
-  ;; do some changes
-  (set :transactions [])
-
-  (set [:transactions 0] 2)
-
-  (update [:transactions 3] identity)
-
-  (save!)
-
-  )
