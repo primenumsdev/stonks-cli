@@ -1,14 +1,8 @@
 (ns stonks.db
-  (:require [clojure.edn :as edn]
-            [clojure.java.io :as io]
+  (:refer-clojure :exclude [get set update])
+  (:require [clojure.java.io :as io]
             [taoensso.nippy :as nippy])
   (:import (java.util Date UUID)))
-
-
-(defn utc-now! [] (Date.))
-
-(defn uuid! [] (str (UUID/randomUUID)))
-
 
 ;; This is my own DB :)
 
@@ -32,62 +26,49 @@
 ;; Using nippy for serialization, encryption
 ;; https://github.com/ptaoussanis/nippy
 
-;; TODO: Separate file for collection
-(def file-db "")
-(def file-pass "")
+(def ^:private file-db "")
+(def ^:private file-pass "")
+(def ^:private state (atom {}))
 
-(def state (atom {}))
+(defn utc-now! [] (Date.))
 
-(defn override! [path-vec data]
-  (-> @state
-      (assoc-in path-vec data)
-      (->> (reset! state))))
+(defn uuid! [] (str (UUID/randomUUID)))
 
-(defn query [path-vec]
-  (-> @state (get-in path-vec)))
+(defn- create-file-path! [file-path]
+  (-> file-path
+      io/file
+      .getParentFile
+      .mkdirs))
 
 (defn load!
   "Load state from file db."
   []
   (prn "loading db...")
-  ;; nippy fast, encryption
   (-> file-db
       (nippy/thaw-from-file {:password [:salted file-pass]})
       (assoc-in [:meta :loaded] (utc-now!))
-      (->> (reset! state))
-      )
-  ;; simple edn slurp, open text, maybe slow? benchmark?
-  ;(-> file-db
-  ;    slurp
-  ;    edn/read-string
-  ;    (assoc-in [:meta :loaded] (utc-now!))
-  ;    (->> (reset! state)))
-  )
+      (->> (reset! state))))
 
-;; TODO: Add backup? option?
-(defn persist!
+(defn save!
   "Save current state to file."
   []
   (prn "saving db...")
-  (let [s (assoc-in @state [:meta :updated] (utc-now!))]
-    ;; nippy fast, encryption
+  (let [s (-> @state
+              (assoc-in [:meta :saved] (utc-now!))
+              (clojure.core/update :meta #(dissoc % :has-changes?)))]
     (nippy/freeze-to-file file-db s {:password [:salted file-pass]})
-    (reset! state s)
-    ;; simple edn slurp, open text, maybe slow? benchmark?
-    ;(->> (spit file-db
-    ;           ;:append true
-    ;           ))
-    )
-  )
+    (reset! state s)))
 
-(defn -init-state
+(defn- create-state
   "Create default state for new db."
   [file-path name]
-  {:id (uuid!)
-   :name name
-   :location file-path
-   :meta {:created (utc-now!)}
-   })
+  {:meta {:id           (uuid!)
+          :name         name
+          :location     file-path
+          :created      (utc-now!)
+          :saved        nil
+          :loaded       nil
+          :has-changes? true}})
 
 (defn create!
   [{:keys [file-path name password]} & {:keys [override? discard?]}]
@@ -99,10 +80,11 @@
       (prn "current db state is not empty, use discard? option, aborting...")
       (do
         (prn (str "creating db at " file-path "..."))
+        (create-file-path! file-path)
         (def file-db file-path)
         (def file-pass password)
-        (reset! state (-init-state file-path name))
-        (persist!)
+        (reset! state (create-state file-path name))
+        (save!)
         (load!)))))
 
 (defn connect!
@@ -118,7 +100,7 @@
           (prn (str "connecting to db at " file-path "..."))
           (try
             ;; try load data with given creds
-            (with-redefs [file-db file-path
+            (with-redefs [file-db   file-path
                           file-pass password]
               (load!))
             ;; save to local state if success
@@ -129,5 +111,42 @@
             (catch Exception ex
               (prn (ex-message ex))
               (prn "db load error, aborting...")
-              (throw ex))
-            ))))))
+              (throw ex))))))))
+
+(defn set [path val]
+  (if (vector? path)
+    (swap! state assoc-in path val)
+    (swap! state assoc path val))
+  (swap! state assoc-in [:meta :has-changes?] true))
+
+(defn update [path cb]
+  (if (vector? path)
+    (swap! state update-in path cb)
+    (swap! state update path cb))
+  (swap! state assoc-in [:meta :has-changes?] true))
+
+(defn get [path]
+  (if (vector? path)
+    (get-in @state path)
+    (path @state)))
+
+(comment
+
+  ;; create db
+  (create!
+    {:file-path "/Users/sergeykozachenko/.stonks/test.db"
+     :name      "test"
+     :password  "mypass"}
+    :override? true
+    :discard? true)
+
+  ;; do some changes
+  (set :transactions [])
+
+  (set [:transactions 0] 2)
+
+  (update [:transactions 3] identity)
+
+  (save!)
+
+  )
