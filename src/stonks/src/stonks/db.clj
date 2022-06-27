@@ -129,3 +129,7 @@
   (if (vector? path)
     (get-in @state path)
     (path @state)))
+
+(comment
+  @state
+  )

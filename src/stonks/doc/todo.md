@@ -5,7 +5,7 @@
 1. Interactive menu with cursor and clear screen
 2. Internal database
 3. ASCII Tables/Charts https://github.com/MitchTalmadge/ASCII-Data
-4. GraalVM native binary
+4. GraalVM native binary (https://github.com/clj-easy/graalvm-clojure)
 
 
 ## Design
