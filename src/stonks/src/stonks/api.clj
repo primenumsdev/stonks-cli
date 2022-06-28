@@ -33,5 +33,14 @@
 
 (comment
 
-  (get-quote "AAPL")
+  (get (get-quote "AAPL") "c")
+  ;{"d" -3.855 Change
+  ; "dp" -2.7213, Percent change
+  ; "t" 1656441986, time
+  ; "l" 137.58, Low price of the day
+  ; "h" 143.422, High price of the day
+  ; "pc" 141.66, Previous close price
+  ; "o" 142.695, Open price of the day
+  ; "c" 137.805} Current price
+
   )

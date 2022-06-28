@@ -9,15 +9,40 @@
 
 (defn utc-now! [] (Date.))
 
-(defn cls
-  "Clear screen"
-  []
-  (print (str (char 27) "[2J")))
+#_(defn cls
+    "Clear screen"
+    []
+    (print (str (char 27) "[2J")))
 
-(defn reset-cur
-  "Move cursor to the top left corner of the screen"
-  []
-  (print (str (char 27) "[;H")))
+#_(defn reset-cur
+    "Move cursor to the top left corner of the screen"
+    []
+    (print (str (char 27) "[;H")))
+
+#_(defn menu [{:keys [prompt options]}]
+    (let [options       (map (fn [o idx]
+                               (if (string? o)
+                                 {:id (str (inc idx)) :text o}
+                                 o)) options (range))
+          valid-options (set (map :id options))]
+      (loop []
+        (when prompt
+          (println)
+          (println prompt)
+          (println))
+        (doseq [{:keys [id text]} options]
+          (println (str " [" id "]") text))
+        (println)
+        (println "or press <enter> to cancel")
+        (let [in (str/trim (read-line))]
+          (cond (= in "")
+                :cancelled
+                (not (valid-options in))
+                (do
+                  (println (format "\n-- Invalid option '%s'!" in))
+                  (recur))
+                :else
+                (first (filter #(= in (:id %)) options)))))))
 
 (defn user-home-dir []
   (System/getProperty "user.home"))
@@ -61,39 +86,38 @@
   (api/set-token! (db/get :finnhub-token))
   (db/save!))
 
-(defn menu [{:keys [prompt options]}]
-  (let [options       (map (fn [o idx]
-                             (if (string? o)
-                               {:id (str (inc idx)) :text o}
-                               o)) options (range))
-        valid-options (set (map :id options))]
-    (loop []
-      (when prompt
-        (println)
-        (println prompt)
-        (println))
-      (doseq [{:keys [id text]} options]
-        (println (str " [" id "]") text))
-      (println)
-      (println "or press <enter> to cancel")
-      (let [in (str/trim (read-line))]
-        (cond (= in "")
-              :cancelled
-              (not (valid-options in))
-              (do
-                (println (format "\n-- Invalid option '%s'!" in))
-                (recur))
-              :else
-              (first (filter #(= in (:id %)) options)))))))
+(defn stats []
+  (let [trans       (db/get :transactions)
+        total-spent (->> trans
+                         (filter #(= :buy (first %)))
+                         (map #(* (nth % 2) (nth % 3)))
+                         (reduce +))
+        ticker-amt  (->> trans
+                         (group-by second)
+                         (reduce-kv (fn [m k v]
+                                      (assoc m k (reduce
+                                                   (fn [val tr]
+                                                     (case (first tr)
+                                                       :buy (+ val (nth tr 2))
+                                                       :sell (- val (nth tr 2))))
+                                                   0 v)))
+                                    {}))
+        cur-eval (->> ticker-amt
+                      (reduce-kv (fn [t k v]
+                                   (+ t (* (get (api/get-quote k) "c") v)))
+                                 0))]
+    (printf "Total spent: %s USD\n" total-spent)
+    (printf "Current evaluation: %s USD\n" cur-eval)
+    (println "Holdings:" ticker-amt)))
 
 (defn dashboard []
   (println "---")
-  (let [trans (db/get :transactions)]
-    (prn trans))
+  (stats)
   (println "---")
   (println "Menu:")
   (println "1 - Add buy transaction")
   (println "2 - Add sell transaction")
+  (println "c - Clear all transactions")
   (println "q - Exit")
   ;; wait user input
   (case (read-line)
@@ -101,22 +125,33 @@
           (println "Add new buy transaction")
           (println "Ticker:")
           (let [ticker (read-line)]
-            (println "Price:")
-            (let [price (read-line)]
-              (prn "price is " price)
-              (db/update :transactions #(conj % [:buy ticker price "USD" (utc-now!)]))
-              (db/save!)))
+            (println "Amount:")
+            (let [amt (Integer/parseInt (str (read-line)))]
+              (println "Price:")
+              (let [price (BigDecimal. (str (read-line)))]
+                (prn "price is " price)
+                (db/update :transactions #(conj % [:buy ticker amt price "USD" (utc-now!)]))
+                (db/save!))))
           (recur))
     "2" (do
           (println "Add new sell transaction")
           (println "Ticker:")
           (let [ticker (read-line)]
-            (println "Price:")
-            (let [price (read-line)]
-              (prn "price is " price)
-              (db/update :transactions #(conj % [:sell ticker price "USD" (utc-now!)]))
-              (db/save!)))
+            (println "Amount:")
+            (let [amt (Integer/parseInt (str (read-line)))]
+              (println "Price:")
+              (let [price (BigDecimal. (str (read-line)))]
+                (prn "price is " price)
+                (db/update :transactions #(conj % [:sell ticker amt price "USD" (utc-now!)]))
+                (db/save!))))
           (recur))
+
+    "c" (do
+          (println "Clearing all transactions...")
+          (db/set :transactions [])
+          (db/save!)
+          (recur))
+
     "q" (do
           (println "Bye bye!"))))
 
@@ -132,8 +167,6 @@
 (comment
   (-main)
 
-
-
-  (menu {:prompt  "Which database"
-         :options ["Localhost" "Remote" {:id "o" :text "Other"}]})
+  ;(menu {:prompt  "Which database"
+  ;       :options ["Localhost" "Remote" {:id "o" :text "Other"}]})
   )
