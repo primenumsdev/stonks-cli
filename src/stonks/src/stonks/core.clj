@@ -75,6 +75,13 @@
     (db/set :last-login (utc-now!)))
   (api/set-token! (db/get :finnhub-token)))
 
+(defn add-new-transaction [trans-type]
+  (let [ticker (prompt-str "Ticker:")
+        amt    (prompt-int "Amount:")
+        price  (prompt-big-dec "Price:")]
+    (db/with-save!
+      (db/update :transactions #(conj % [trans-type ticker amt price "USD" (utc-now!)])))))
+
 (defn stats []
   (let [trans       (db/get :transactions)
         total-spent (->> trans
@@ -97,43 +104,52 @@
                                     0))]
     (printf "Total spent: %s USD\n" total-spent)
     (printf "Current evaluation: %s USD\n" cur-eval)
-    (println "Holdings:" ticker-amt)))
+    (println "Holdings:" ticker-amt)
+    (println "Transactions:")
+    (print-table (mapv
+                   #(zipmap [:type :ticker :amount :price :currency :time] %)
+                   trans))))
 
-(defn add-new-transaction [trans-type]
-  (let [ticker (prompt-str "Ticker:")
-        amt    (prompt-int "Amount:")
-        price  (prompt-big-dec "Price:")]
-    (db/with-save!
-      (db/update :transactions #(conj % [trans-type ticker amt price "USD" (utc-now!)])))))
+(defn separator []
+  (println "---"))
 
-(defn dashboard []
-  (println "---")
-  (stats)
-  (println "---")
+(defn menu []
   (println "Menu:")
   (println "1 - Add buy transaction")
   (println "2 - Add sell transaction")
   (println "c - Clear all transactions")
-  (println "q - Exit")
+  (println "q - Exit"))
+
+(defn dashboard [& {:keys [render-stats?]
+                    :or   {render-stats? true}}]
+  (when render-stats?
+    (separator)
+    (stats))
+  (separator)
+  (menu)
   ;; wait user input
   (case (read-line)
     "1" (do
           (println "Add new buy transaction")
           (add-new-transaction :buy)
-          (recur))
+          (recur nil))
     "2" (do
           (println "Add new sell transaction")
           (add-new-transaction :sell)
-          (recur))
+          (recur nil))
 
-    "c" (do
-          (println "Clearing all transactions...")
-          (db/with-save!
-            (db/set :transactions []))
-          (recur))
+    ("c" "C") (do
+                (println "Clearing all transactions...")
+                (db/with-save!
+                  (db/set :transactions []))
+                (recur nil))
 
-    "q" (do
-          (println "Bye bye!"))))
+    ("q" "Q") (do
+                (println "Bye bye!"))
+
+    (do
+      (println "Invalid input, try again.")
+      (recur {:render-stats? false}))))
 
 (defn -main
   "Entry."
