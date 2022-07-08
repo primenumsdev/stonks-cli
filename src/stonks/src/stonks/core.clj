@@ -109,10 +109,15 @@
         cur-eval    (->> ticker-amt
                          (reduce-kv (fn [t k v]
                                       (+ t (round2 (* (get (api/get-quote k) "c") v))))
-                                    0))]
+                                    0))
+
+        perf        (.divide ^BigDecimal (- cur-eval total-spent)
+                             ^BigDecimal (/ total-spent 100)
+                             2 RoundingMode/HALF_UP)]
     (separator)
-    (printf "Total spent: %s USD\n" total-spent)
-    (printf "Current evaluation: %s USD\n" cur-eval)
+    (printf "Total spent: %sUSD\n" total-spent)
+    (printf "Current evaluation: %sUSD\n" cur-eval)
+    (printf "Performance: %s%%\n" perf)
     (println "Holdings:" ticker-amt)
     (separator)
     (println "Transactions:")
@@ -144,16 +149,13 @@
           (println "Add new sell transaction")
           (add-new-transaction :sell)
           (recur nil))
-
     ("c" "C") (do
                 (println "Clearing all transactions...")
                 (db/with-save!
                   (db/set :transactions []))
                 (recur nil))
-
     ("q" "Q") (do
                 (println "Bye bye!"))
-
     (do
       (println "Invalid input, try again.")
       (recur {:render-stats? false}))))
