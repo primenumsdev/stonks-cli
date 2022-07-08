@@ -4,6 +4,12 @@
   (:import (javax.net.ssl SSLEngine SSLParameters SNIHostName)
            (java.net URI)))
 
+(def ^:dynamic *DEBUG* false)
+
+(defn debug [& msg]
+  (when *DEBUG*
+    (apply prn "[DEBUG]" msg)))
+
 (defn- sni-configure
   [^SSLEngine ssl-engine ^URI uri]
   (let [^SSLParameters ssl-params (.getSSLParameters ssl-engine)]
@@ -23,13 +29,15 @@
 (defn get-quote
   "https://finnhub.io/docs/api/quote"
   [ticker]
-  (-> (str base-url api-ver "/quote")
-      (http/get {:client       client
-                 :query-params {:symbol ticker}
-                 :headers      {"X-Finnhub-Token" token}})
-      deref
-      :body
-      j/read-value))
+  (let [req (http/request
+              {:client       client
+               :url          (str base-url api-ver "/quote")
+               :method       :get
+               :query-params {:symbol ticker}
+               :headers      {"X-Finnhub-Token" token}})
+        res @req]
+    (debug "get-quote" ticker res)
+    (-> res :body j/read-value)))
 
 (comment
 

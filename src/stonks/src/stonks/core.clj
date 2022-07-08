@@ -4,7 +4,8 @@
             [clojure.string :as str]
             [stonks.db :as db]
             [stonks.api :as api])
-  (:import (java.util Date))
+  (:import (java.util Date)
+           (java.math RoundingMode))
   (:gen-class))
 
 (defn utc-now! [] (Date.))
@@ -43,6 +44,9 @@
     (catch NumberFormatException _
       (println "Invalid number format, try again.")
       (prompt-int msg))))
+
+(defn round2 [^BigDecimal big-dec]
+  (.setScale (bigdec big-dec) 2 RoundingMode/HALF_UP))
 
 (defn initial-setup! []
   (let [username (prompt-str "Hello, what is your name?")]
@@ -96,14 +100,15 @@
                          (reduce-kv (fn [m k v]
                                       (assoc m k (reduce
                                                    (fn [val tr]
-                                                     (case (first tr)
-                                                       :buy (+ val (nth tr 2))
-                                                       :sell (- val (nth tr 2))))
+                                                     ((case (first tr)
+                                                        :buy +
+                                                        :sell -)
+                                                      val (nth tr 2)))
                                                    0 v)))
                                     {}))
         cur-eval    (->> ticker-amt
                          (reduce-kv (fn [t k v]
-                                      (+ t (* (get (api/get-quote k) "c") v)))
+                                      (+ t (round2 (* (get (api/get-quote k) "c") v))))
                                     0))]
     (separator)
     (printf "Total spent: %s USD\n" total-spent)
@@ -163,9 +168,9 @@
   (dashboard))
 
 (comment
-  (binding [db/*DEBUG* true]
+  (binding [db/*DEBUG*  false
+            api/*DEBUG* true]
     (-main)
     )
-
 
   )
