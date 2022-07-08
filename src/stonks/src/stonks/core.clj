@@ -9,41 +9,6 @@
 
 (defn utc-now! [] (Date.))
 
-#_(defn cls
-    "Clear screen"
-    []
-    (print (str (char 27) "[2J")))
-
-#_(defn reset-cur
-    "Move cursor to the top left corner of the screen"
-    []
-    (print (str (char 27) "[;H")))
-
-#_(defn menu [{:keys [prompt options]}]
-    (let [options       (map (fn [o idx]
-                               (if (string? o)
-                                 {:id (str (inc idx)) :text o}
-                                 o)) options (range))
-          valid-options (set (map :id options))]
-      (loop []
-        (when prompt
-          (println)
-          (println prompt)
-          (println))
-        (doseq [{:keys [id text]} options]
-          (println (str " [" id "]") text))
-        (println)
-        (println "or press <enter> to cancel")
-        (let [in (str/trim (read-line))]
-          (cond (= in "")
-                :cancelled
-                (not (valid-options in))
-                (do
-                  (println (format "\n-- Invalid option '%s'!" in))
-                  (recur))
-                :else
-                (first (filter #(= in (:id %)) options)))))))
-
 (defn user-home-dir []
   (System/getProperty "user.home"))
 
@@ -53,38 +18,62 @@
 (defn userdata-exists? []
   (.exists (io/file (userdata-path))))
 
+(defn read-big-dec []
+  (BigDecimal. (str (read-line))))
+
+(defn read-int []
+  (Integer/parseInt (str (read-line))))
+
+(defn prompt-str [msg]
+  (println msg)
+  (read-line))
+
+(defn prompt-int [msg]
+  (println msg)
+  (try
+    (read-int)
+    (catch NumberFormatException _
+      (println "Invalid number format, try again.")
+      (prompt-int msg))))
+
+(defn prompt-big-dec [msg]
+  (println msg)
+  (try
+    (read-big-dec)
+    (catch NumberFormatException _
+      (println "Invalid number format, try again.")
+      (prompt-int msg))))
+
 (defn initial-setup! []
-  (println "Hello, what is your name?")
-  (let [username (read-line)]
+  (let [username (prompt-str "Hello, what is your name?")]
     (printf "Hi %s!\n" username)
     (println "We are going to setup a new user data file for you.")
-    (println "Please specify a password:")
-    (let [pass (read-line)]
+    (let [pass (prompt-str "Please specify a password:")]
       (db/create!
         {:file-path (userdata-path)
          :name      "userdata"
-         :password  pass}))
-    (println "Enter finnhub.io API token:")
-    (let [token (read-line)]
+         :password  pass}
+        {:override? true
+         :discard?  true}))
+    (let [token (prompt-str "Enter finnhub.io API token:")]
       (db/set :finnhub-token token)
       (api/set-token! token))
-    (db/set :username username)
-    (db/set :registered (utc-now!))
-    (db/set :last-login (utc-now!))
-    (db/set :transactions [])
-    (db/save!)))
+    (db/with-save!
+      (db/set :username username)
+      (db/set :registered (utc-now!))
+      (db/set :last-login (utc-now!))
+      (db/set :transactions []))))
 
 (defn load-userdata! []
-  (println "Hello, please enter your password:")
-  (let [pass (read-line)]
+  (let [pass (prompt-str "Hello, please enter your password:")]
     (db/connect!
       {:file-path (userdata-path)
        :password  pass}))
   (printf "Welcome back, %s!\n" (db/get :username))
   (printf "Last login: %s\n" (db/get :last-login))
-  (db/set :last-login (utc-now!))
-  (api/set-token! (db/get :finnhub-token))
-  (db/save!))
+  (db/with-save!
+    (db/set :last-login (utc-now!)))
+  (api/set-token! (db/get :finnhub-token)))
 
 (defn stats []
   (let [trans       (db/get :transactions)
@@ -102,13 +91,20 @@
                                                        :sell (- val (nth tr 2))))
                                                    0 v)))
                                     {}))
-        cur-eval (->> ticker-amt
-                      (reduce-kv (fn [t k v]
-                                   (+ t (* (get (api/get-quote k) "c") v)))
-                                 0))]
+        cur-eval    (->> ticker-amt
+                         (reduce-kv (fn [t k v]
+                                      (+ t (* (get (api/get-quote k) "c") v)))
+                                    0))]
     (printf "Total spent: %s USD\n" total-spent)
     (printf "Current evaluation: %s USD\n" cur-eval)
     (println "Holdings:" ticker-amt)))
+
+(defn add-new-transaction [trans-type]
+  (let [ticker (prompt-str "Ticker:")
+        amt    (prompt-int "Amount:")
+        price  (prompt-big-dec "Price:")]
+    (db/with-save!
+      (db/update :transactions #(conj % [trans-type ticker amt price "USD" (utc-now!)])))))
 
 (defn dashboard []
   (println "---")
@@ -123,33 +119,17 @@
   (case (read-line)
     "1" (do
           (println "Add new buy transaction")
-          (println "Ticker:")
-          (let [ticker (read-line)]
-            (println "Amount:")
-            (let [amt (Integer/parseInt (str (read-line)))]
-              (println "Price:")
-              (let [price (BigDecimal. (str (read-line)))]
-                (prn "price is " price)
-                (db/update :transactions #(conj % [:buy ticker amt price "USD" (utc-now!)]))
-                (db/save!))))
+          (add-new-transaction :buy)
           (recur))
     "2" (do
           (println "Add new sell transaction")
-          (println "Ticker:")
-          (let [ticker (read-line)]
-            (println "Amount:")
-            (let [amt (Integer/parseInt (str (read-line)))]
-              (println "Price:")
-              (let [price (BigDecimal. (str (read-line)))]
-                (prn "price is " price)
-                (db/update :transactions #(conj % [:sell ticker amt price "USD" (utc-now!)]))
-                (db/save!))))
+          (add-new-transaction :sell)
           (recur))
 
     "c" (do
           (println "Clearing all transactions...")
-          (db/set :transactions [])
-          (db/save!)
+          (db/with-save!
+            (db/set :transactions []))
           (recur))
 
     "q" (do
@@ -167,6 +147,4 @@
 (comment
   (-main)
 
-  ;(menu {:prompt  "Which database"
-  ;       :options ["Localhost" "Remote" {:id "o" :text "Other"}]})
   )

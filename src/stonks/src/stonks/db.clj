@@ -130,6 +130,11 @@
     (get-in @state path)
     (path @state)))
 
+(defmacro with-save! [& body]
+  `(do
+     ~@body
+     (save!)))
+
 (comment
   @state
   )
