@@ -82,6 +82,9 @@
     (db/with-save!
       (db/update :transactions #(conj % [trans-type ticker amt price "USD" (utc-now!)])))))
 
+(defn separator []
+  (println "---"))
+
 (defn stats []
   (let [trans       (db/get :transactions)
         total-spent (->> trans
@@ -102,30 +105,29 @@
                          (reduce-kv (fn [t k v]
                                       (+ t (* (get (api/get-quote k) "c") v)))
                                     0))]
+    (separator)
     (printf "Total spent: %s USD\n" total-spent)
     (printf "Current evaluation: %s USD\n" cur-eval)
     (println "Holdings:" ticker-amt)
+    (separator)
     (println "Transactions:")
     (print-table (mapv
                    #(zipmap [:type :ticker :amount :price :currency :time] %)
                    trans))))
 
-(defn separator []
-  (println "---"))
-
 (defn menu []
+  (separator)
   (println "Menu:")
   (println "1 - Add buy transaction")
   (println "2 - Add sell transaction")
   (println "c - Clear all transactions")
-  (println "q - Exit"))
+  (println "q - Exit")
+  (separator))
 
 (defn dashboard [& {:keys [render-stats?]
                     :or   {render-stats? true}}]
   (when render-stats?
-    (separator)
     (stats))
-  (separator)
   (menu)
   ;; wait user input
   (case (read-line)
@@ -161,6 +163,9 @@
   (dashboard))
 
 (comment
-  (-main)
+  (binding [db/*DEBUG* true]
+    (-main)
+    )
+
 
   )

@@ -4,6 +4,12 @@
             [taoensso.nippy :as nippy])
   (:import (java.util Date UUID)))
 
+(def ^:dynamic *DEBUG* false)
+
+(defn debug [& msg]
+  (when *DEBUG*
+    (apply prn "[DEBUG]" msg)))
+
 ;; This is my own DB :)
 
 ;; Features:
@@ -43,7 +49,7 @@
 (defn load!
   "Load state from file db."
   []
-  (prn "loading db...")
+  (debug "loading db...")
   (-> file-db
       (nippy/thaw-from-file {:password [:salted file-pass]})
       (assoc-in [:meta :loaded] (utc-now!))
@@ -52,7 +58,7 @@
 (defn save!
   "Save current state to file."
   []
-  (prn "saving db...")
+  (debug "saving db...")
   (let [s (-> @state
               (assoc-in [:meta :saved] (utc-now!))
               (clojure.core/update :meta #(dissoc % :has-changes?)))]
@@ -74,12 +80,12 @@
   [{:keys [file-path name password]} & {:keys [override? discard?]}]
   (if (and (.exists (io/file file-path))
            (not override?))
-    (prn "db already exists, use override? option, aborting...")
+    (throw (Exception. "db already exists, use override? option, aborting..."))
     (if (and (seq @state)
              (not discard?))
-      (prn "current db state is not empty, use discard? option, aborting...")
+      (throw (Exception. "current db state is not empty, use discard? option, aborting..."))
       (do
-        (prn (str "creating db at " file-path "..."))
+        (debug (str "creating db at " file-path "..."))
         (create-file-path! file-path)
         (def file-db file-path)
         (def file-pass password)
@@ -90,14 +96,14 @@
 (defn connect!
   [{:keys [file-path password]} & {:keys [discard?]}]
   (if (= file-path file-db)
-    (prn "already connected")
+    (debug "already connected")
     (if (and (seq @state)
              (not discard?))
-      (prn "current db state is not empty, use discard? option, aborting...")
+      (throw (Exception. "current db state is not empty, use discard? option, aborting..."))
       (if-not (.exists (io/file file-path))
-        (prn (str "db not found at " file-path))
+        (throw (Exception. (str "db not found at " file-path)))
         (do
-          (prn (str "connecting to db at " file-path "..."))
+          (debug (str "connecting to db at " file-path "..."))
           (try
             ;; try load data with given creds
             (with-redefs [file-db   file-path
@@ -107,10 +113,10 @@
             ;; otherwise it will not be reached due to exception above
             (def file-pass password)
             (def file-db file-path)
-            (prn "db loaded successfully")
+            (debug "db loaded successfully")
             (catch Exception ex
-              (prn (ex-message ex))
-              (prn "db load error, aborting...")
+              (debug (ex-message ex))
+              (println "db load error, aborting...")
               (throw ex))))))))
 
 (defn set [path val]
