@@ -211,49 +211,84 @@
     (printf "Best performer: %s\n" best-perf)
     (printf "Worst performer: %s\n" worst-perf)
     (printf "Allocation: %s\n" ticker-alloc)
+    (separator)))
+
+(defn holdings []
+  (let [trans      (db/get :transactions)
+        ticker-amt (->> trans
+                        (group-by second)
+                        (reduce-kv (fn [m k v]
+                                     (assoc m k (reduce sum-amt 0 v)))
+                                   {}))
+        holdings   (->> ticker-amt
+                        (reduce-kv (fn [h k v]
+                                     (let [cur-price (get-cur-price k)
+                                           cur-val   (round2 (* v cur-price))
+                                           spent     (spent k trans)]
+                                       (conj h
+                                             {:ticker     k
+                                              :amount     v
+                                              :cur-price  (usd cur-price)
+                                              :avg-price  (usd (approx (avg-price spent v)))
+                                              :spent      (usd spent)
+                                              :cur-val    (usd cur-val)
+                                              :profit-val (- cur-val spent)
+                                              :profit     (usd (- cur-val spent))
+                                              :perf       (pct (perf cur-val spent))
+                                              })))
+                                   []))]
     (separator)
     (println "Holdings:")
-    (print-table [:ticker :amout :cur-price :avg-price :spent :cur-val :profit :perf] holdings)
+    (print-table [:ticker :amount :cur-price :avg-price :spent :cur-val :profit :perf] holdings)
+    (separator)))
+
+(defn transactions []
+  (let [trans (db/get :transactions)]
     (separator)
     (println "Transactions:")
     (print-table (mapv
                    #(zipmap [:type :ticker :amount :price :currency :time] %)
-                   trans))))
+                   trans))
+    (separator)))
 
 (defn menu []
-  (separator)
   (println "Menu:\n")
   (println "1 - Add buy transaction")
   (println "2 - Add sell transaction")
   (println "c - Clear all transactions")
+  (println "s - Show stats")
+  (println "h - Show holdings")
+  (println "t - Show transactions")
   (println "q - Exit")
-  (separator))
-
-(defn dashboard [& {:keys [render-stats?]
-                    :or   {render-stats? true}}]
-  (when render-stats?
-    (stats))
-  (menu)
   ;; wait user input
   (case (read-line)
     "1" (do
           (println "Add new buy transaction")
           (add-new-transaction :buy)
-          (recur nil))
+          (recur))
     "2" (do
           (println "Add new sell transaction")
           (add-new-transaction :sell)
-          (recur nil))
+          (recur))
     ("c" "C") (do
                 (println "Clearing all transactions...")
                 (db/with-save!
                   (db/set :transactions []))
-                (recur nil))
+                (recur))
+    ("s" "S") (do
+                (stats)
+                (recur))
+    ("h" "H") (do
+                (holdings)
+                (recur))
+    ("t" "T") (do
+                (transactions)
+                (recur))
     ("q" "Q") (do
                 (println "Bye bye!"))
     (do
       (println "Invalid input, try again.")
-      (recur {:render-stats? false}))))
+      (recur))))
 
 (defn -main
   "Entry."
@@ -262,9 +297,12 @@
   (if-not (userdata-exists?)
     (initial-setup!)
     (load-userdata!))
-  (dashboard))
+  (separator)
+  (menu))
 
 (comment
+
+  ;; debug
   (binding [db/*DEBUG*  false
             api/*DEBUG* false]
     (-main))
