@@ -147,38 +147,53 @@
            ^BigDecimal (/ spent 100)
            2 RoundingMode/HALF_UP))
 
+(defn best-worst-perf
+  "Best and worst performers based on profit."
+  [holdings]
+  (let [sorted  (sort-by :profit-val holdings)
+        selkeys [:ticker :profit :perf]]
+    [(select-keys (last sorted) selkeys)
+     (select-keys (first sorted) selkeys)]))
+
 (defn stats []
-  (let [trans       (db/get :transactions)
-        total-spent (spent trans)
-        ticker-amt  (->> trans
-                         (group-by second)
-                         (reduce-kv (fn [m k v]
-                                      (assoc m k (reduce sum-amt 0 v)))
-                                    {}))
-        cur-val     (reduce-kv sum-cur-val 0 ticker-amt)
-        total-perf  (perf cur-val total-spent)
-        holdings    (->> ticker-amt
-                         (reduce-kv (fn [h k v]
-                                      (let [cur-price (get-cur-price k)
-                                            cur-val   (round2 (* v cur-price))
-                                            spent     (spent k trans)]
-                                        (conj h
-                                              {:ticker    k
-                                               :amount    v
-                                               :cur-price (usd cur-price)
-                                               :avg-price (usd (approx (avg-price spent v)))
-                                               :spent     (usd spent)
-                                               :cur-val   (usd cur-val)
-                                               :perf      (pct (perf cur-val spent))
-                                               })))
-                                    []))]
+  (let [trans        (db/get :transactions)
+        total-spent  (spent trans)
+        ticker-amt   (->> trans
+                          (group-by second)
+                          (reduce-kv (fn [m k v]
+                                       (assoc m k (reduce sum-amt 0 v)))
+                                     {}))
+        cur-val      (reduce-kv sum-cur-val 0 ticker-amt)
+        total-profit (usd (- cur-val total-spent))
+        total-perf   (perf cur-val total-spent)
+        holdings     (->> ticker-amt
+                          (reduce-kv (fn [h k v]
+                                       (let [cur-price (get-cur-price k)
+                                             cur-val   (round2 (* v cur-price))
+                                             spent     (spent k trans)]
+                                         (conj h
+                                               {:ticker     k
+                                                :amount     v
+                                                :cur-price  (usd cur-price)
+                                                :avg-price  (usd (approx (avg-price spent v)))
+                                                :spent      (usd spent)
+                                                :cur-val    (usd cur-val)
+                                                :profit-val (- cur-val spent)
+                                                :profit     (usd (- cur-val spent))
+                                                :perf       (pct (perf cur-val spent))
+                                                })))
+                                     []))
+        [best-perf worst-perf] (best-worst-perf holdings)]
     (separator)
     (printf "Total spent: %s\n" (usd total-spent))
     (printf "Current evaluation: %s\n" (usd cur-val))
+    (printf "Total profit: %s\n" total-profit)
     (printf "Performance: %s\n" (pct total-perf))
+    (printf "Best performer: %s\n" best-perf)
+    (printf "Worst performer: %s\n" worst-perf)
     (separator)
     (println "Holdings:")
-    (print-table holdings)
+    (print-table [:ticker :amout :cur-price :avg-price :spent :cur-val :profit :perf] holdings)
     (separator)
     (println "Transactions:")
     (print-table (mapv
@@ -233,5 +248,19 @@
   (binding [db/*DEBUG*  false
             api/*DEBUG* false]
     (-main))
+
+
+  ;; TODO: implement allocation chart
+  (defn print-progress-bar [percent]
+    (let [bar (StringBuilder. "[")]
+      (doseq [i (range 50)]
+        (cond (< i (int (/ percent 2))) (.append bar "=")
+              (= i (int (/ percent 2))) (.append bar ">")
+              :else (.append bar " ")))
+      (.append bar (str "] " percent "%     "))
+      (print "\r" (.toString bar))
+      (flush)))
+
+  (print-progress-bar 56)
 
   )
