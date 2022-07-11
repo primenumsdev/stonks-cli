@@ -1,7 +1,6 @@
 (ns stonks.core
   (:require [clojure.pprint :refer [print-table]]
             [clojure.java.io :as io]
-            [clojure.string :as str]
             [stonks.db :as db]
             [stonks.api :as api])
   (:import (java.util Date)
@@ -89,12 +88,43 @@
 (defn separator []
   (println "---"))
 
+(defn spent
+  "
+  Spent, sum of buy transactions multiplied by it's amounts.
+  Spent = sum(amt * price)
+  "
+  ([trans] (spent nil trans))
+  ([ticker trans]
+   (->> trans
+        (filter #(= :buy (first %)))
+        (filter #(if (some? ticker)
+                   (= ticker (second %))
+                   true))
+        ;; amt * price
+        (map #(* (nth % 2) (nth % 3)))
+        (reduce +))))
+
+(defn avg-price
+  "
+  AvgPrice, average price.
+  Avg.Price = Total Spent / Amount
+  "
+  [^BigDecimal spent ^Long amt]
+  (.divide spent (bigdec amt) 2 RoundingMode/HALF_UP))
+
+(defn perf
+  "
+  Performance, profit or loss in percentage.
+  Perf = (CurVal - Spent) / 1%ofSpent
+  "
+  [^BigDecimal cur-val ^BigDecimal spent]
+  (.divide ^BigDecimal (- cur-val spent)
+           ^BigDecimal (/ spent 100)
+           2 RoundingMode/HALF_UP))
+
 (defn stats []
   (let [trans       (db/get :transactions)
-        total-spent (->> trans
-                         (filter #(= :buy (first %)))
-                         (map #(* (nth % 2) (nth % 3)))
-                         (reduce +))
+        total-spent (spent trans)
         ticker-amt  (->> trans
                          (group-by second)
                          (reduce-kv (fn [m k v]
@@ -106,19 +136,31 @@
                                                       val (nth tr 2)))
                                                    0 v)))
                                     {}))
-        cur-eval    (->> ticker-amt
+        cur-val     (->> ticker-amt
                          (reduce-kv (fn [t k v]
                                       (+ t (round2 (* (get (api/get-quote k) "c") v))))
                                     0))
-
-        perf        (.divide ^BigDecimal (- cur-eval total-spent)
-                             ^BigDecimal (/ total-spent 100)
-                             2 RoundingMode/HALF_UP)]
+        total-perf  (perf cur-val total-spent)
+        holdings    (->> ticker-amt
+                         (reduce-kv (fn [h k v]
+                                      (let [cur-price (bigdec (get (api/get-quote k) "c"))
+                                            cur-val   (* v cur-price)
+                                            spent     (spent k trans)]
+                                        (conj h
+                                              {:ticker    k
+                                               :amount    v
+                                               :cur-price cur-price
+                                               :avg-price (avg-price spent v)
+                                               :spent     spent
+                                               :cur-eval  cur-val
+                                               :perf      (perf cur-val spent)})))
+                                    []))]
     (separator)
     (printf "Total spent: %sUSD\n" total-spent)
-    (printf "Current evaluation: %sUSD\n" cur-eval)
-    (printf "Performance: %s%%\n" perf)
-    (println "Holdings:" ticker-amt)
+    (printf "Current evaluation: %sUSD\n" cur-val)
+    (printf "Performance: %s%%\n" total-perf)
+    (println "Holdings:")
+    (print-table holdings)
     (separator)
     (println "Transactions:")
     (print-table (mapv
@@ -171,7 +213,7 @@
 
 (comment
   (binding [db/*DEBUG*  false
-            api/*DEBUG* true]
+            api/*DEBUG* false]
     (-main)
     )
 
