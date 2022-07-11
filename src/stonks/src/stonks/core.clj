@@ -97,6 +97,9 @@
 (defn pct [num]
   (format "%s%%" num))
 
+(defn div-round2 [^BigDecimal dividend ^BigDecimal divisor]
+  (.divide dividend divisor 2 RoundingMode/HALF_UP))
+
 (defn buy-sell->+- [tr]
   (case (first tr)
     :buy +
@@ -135,7 +138,7 @@
   Avg.Price = Total Spent / Amount
   "
   [^BigDecimal spent ^Long amt]
-  (.divide spent (bigdec amt) 2 RoundingMode/HALF_UP))
+  (div-round2 spent (bigdec amt)))
 
 (defn perf
   "
@@ -143,17 +146,28 @@
   Perf = (CurVal - Spent) / 1%ofSpent
   "
   [^BigDecimal cur-val ^BigDecimal spent]
-  (.divide ^BigDecimal (- cur-val spent)
-           ^BigDecimal (/ spent 100)
-           2 RoundingMode/HALF_UP))
+  (div-round2 (- cur-val spent) (/ spent 100)))
 
 (defn best-worst-perf
   "Best and worst performers based on profit."
   [holdings]
-  (let [sorted  (sort-by :profit-val holdings)
-        selkeys [:ticker :profit :perf]]
-    [(select-keys (last sorted) selkeys)
-     (select-keys (first sorted) selkeys)]))
+  (let [sorted   (sort-by :profit-val holdings)
+        sel-keys [:ticker :profit :perf]]
+    [(select-keys (last sorted) sel-keys)
+     (select-keys (first sorted) sel-keys)]))
+
+(defn allocation
+  "Allocation = Amt / 1%ofTotal."
+  [ticker-amt]
+  (let [total-amt (->> ticker-amt
+                       (reduce-kv (fn [t _ v]
+                                    (+ t v))
+                                  0))
+        total%1   (div-round2 (bigdec total-amt) 100M)]
+    (->> ticker-amt
+         (reduce-kv (fn [m k v]
+                      (assoc m k (div-round2 (bigdec v) total%1)))
+                    {}))))
 
 (defn stats []
   (let [trans        (db/get :transactions)
@@ -163,6 +177,7 @@
                           (reduce-kv (fn [m k v]
                                        (assoc m k (reduce sum-amt 0 v)))
                                      {}))
+        ticker-alloc (allocation ticker-amt)
         cur-val      (reduce-kv sum-cur-val 0 ticker-amt)
         total-profit (usd (- cur-val total-spent))
         total-perf   (perf cur-val total-spent)
@@ -191,6 +206,7 @@
     (printf "Performance: %s\n" (pct total-perf))
     (printf "Best performer: %s\n" best-perf)
     (printf "Worst performer: %s\n" worst-perf)
+    (printf "Allocation: %s\n" ticker-alloc)
     (separator)
     (println "Holdings:")
     (print-table [:ticker :amout :cur-price :avg-price :spent :cur-val :profit :perf] holdings)
