@@ -8,6 +8,29 @@
            (java.math RoundingMode))
   (:gen-class))
 
+(def ascii-art-title-bird "  ___            ___  \n (o o)          (o o) \n(  V  ) Stonks (  V  )\n--m-m------------m-m--")
+(def ascii-art-title-owl " ^ ^            \n(O,O)           \n(   ) Stonks    \n-\"-\"------------")
+
+(def ascii-art-titles [ascii-art-title-bird
+                       ascii-art-title-owl])
+
+(defonce rand-ascii-art (nth ascii-art-titles (rand-int (count ascii-art-titles))))
+
+(defn separator []
+  (print "\n"))
+
+(defn title []
+  (separator)
+  (println rand-ascii-art)
+  (separator))
+
+(defn reset-cli []
+  ;; clear screen
+  (print (str (char 27) "[2J"))
+  ;; move cursor to the top left corner of the screen
+  (print (str (char 27) "[;H"))
+  (title))
+
 (defn utc-now! [] (Date.))
 
 (defn user-home-dir []
@@ -73,6 +96,7 @@
     (db/connect!
       {:file-path (userdata-path)
        :password  pass}))
+  (reset-cli)
   (printf "Welcome back, %s!\n" (db/get :username))
   (printf "Last login: %s\n" (db/get :last-login))
   (db/with-save!
@@ -85,9 +109,6 @@
         price  (prompt-big-dec "Price:")]
     (db/with-save!
       (db/update :transactions #(conj % [trans-type ticker amt price "USD" (utc-now!)])))))
-
-(defn separator []
-  (println "\n---\n"))
 
 (defn approx [price]
   (format "~%s" price))
@@ -203,7 +224,7 @@
                                                 })))
                                      []))
         [best-perf worst-perf] (best-worst-perf holdings)]
-    (separator)
+    (println "Stats:\n")
     (printf "Total spent: %s\n" (usd total-spent))
     (printf "Current evaluation: %s\n" (usd cur-val))
     (printf "Total profit: %s\n" total-profit)
@@ -237,14 +258,12 @@
                                               :perf       (pct (perf cur-val spent))
                                               })))
                                    []))]
-    (separator)
     (println "Holdings:")
     (print-table [:ticker :amount :cur-price :avg-price :spent :cur-val :profit :perf] holdings)
     (separator)))
 
 (defn transactions []
   (let [trans (db/get :transactions)]
-    (separator)
     (println "Transactions:")
     (print-table (mapv
                    #(zipmap [:type :ticker :amount :price :currency :time] %)
@@ -263,25 +282,31 @@
   ;; wait user input
   (case (read-line)
     "1" (do
+          (reset-cli)
           (println "Add new buy transaction")
           (add-new-transaction :buy)
           (recur))
     "2" (do
+          (reset-cli)
           (println "Add new sell transaction")
           (add-new-transaction :sell)
           (recur))
     ("c" "C") (do
+                (reset-cli)
                 (println "Clearing all transactions...")
                 (db/with-save!
                   (db/set :transactions []))
                 (recur))
     ("s" "S") (do
+                (reset-cli)
                 (stats)
                 (recur))
     ("h" "H") (do
+                (reset-cli)
                 (holdings)
                 (recur))
     ("t" "T") (do
+                (reset-cli)
                 (transactions)
                 (recur))
     ("q" "Q") (do
