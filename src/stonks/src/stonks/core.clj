@@ -1,6 +1,7 @@
 (ns stonks.core
   (:require [clojure.pprint :refer [print-table]]
             [clojure.java.io :as io]
+            [clojure.core.memoize :as memo]
             [stonks.db :as db]
             [stonks.api :as api])
   (:import (java.util Date)
@@ -108,8 +109,11 @@
 (defn sum-amt [sum tr]
   ((buy-sell->+- tr) sum (nth tr 2)))
 
-(defn get-cur-price [ticker]
+(defn -get-cur-price [ticker]
   (bigdec (get (api/get-quote ticker) "c")))
+
+(def get-cur-price
+  (memo/ttl -get-cur-price {} :ttl/threshold 10000))
 
 (defn sum-cur-val [sum ticker amt]
   (+ sum (round2 (* (get-cur-price ticker) amt))))
