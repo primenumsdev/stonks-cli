@@ -86,7 +86,34 @@
       (db/update :transactions #(conj % [trans-type ticker amt price "USD" (utc-now!)])))))
 
 (defn separator []
-  (println "---"))
+  (println "\n---\n"))
+
+(defn approx [price]
+  (format "~%s" price))
+
+(defn usd [price]
+  (format "%sUSD" price))
+
+(defn pct [num]
+  (format "%s%%" num))
+
+(defn buy-sell->+- [tr]
+  (case (first tr)
+    :buy +
+    :sell -))
+
+(defn sum-amt [sum tr]
+  ((buy-sell->+- tr) sum (nth tr 2)))
+
+(defn get-cur-price [ticker]
+  (bigdec (get (api/get-quote ticker) "c")))
+
+(defn sum-cur-val [sum ticker amt]
+  (+ sum (* (get-cur-price ticker) amt)))
+
+(defn sum-cost [sum tr]
+  ;; Cost = Amt * Price
+  (+ sum (* (nth tr 2) (nth tr 3))))
 
 (defn spent
   "
@@ -100,9 +127,7 @@
         (filter #(if (some? ticker)
                    (= ticker (second %))
                    true))
-        ;; amt * price
-        (map #(* (nth % 2) (nth % 3)))
-        (reduce +))))
+        (reduce sum-cost 0))))
 
 (defn avg-price
   "
@@ -128,37 +153,30 @@
         ticker-amt  (->> trans
                          (group-by second)
                          (reduce-kv (fn [m k v]
-                                      (assoc m k (reduce
-                                                   (fn [val tr]
-                                                     ((case (first tr)
-                                                        :buy +
-                                                        :sell -)
-                                                      val (nth tr 2)))
-                                                   0 v)))
+                                      (assoc m k (reduce sum-amt 0 v)))
                                     {}))
-        cur-val     (->> ticker-amt
-                         (reduce-kv (fn [t k v]
-                                      (+ t (round2 (* (get (api/get-quote k) "c") v))))
-                                    0))
+        cur-val     (reduce-kv sum-cur-val 0 ticker-amt)
         total-perf  (perf cur-val total-spent)
         holdings    (->> ticker-amt
                          (reduce-kv (fn [h k v]
-                                      (let [cur-price (bigdec (get (api/get-quote k) "c"))
+                                      (let [cur-price (get-cur-price k)
                                             cur-val   (* v cur-price)
                                             spent     (spent k trans)]
                                         (conj h
-                                              {:ticker    k
-                                               :amount    v
-                                               :cur-price cur-price
-                                               :avg-price (avg-price spent v)
-                                               :spent     spent
-                                               :cur-eval  cur-val
-                                               :perf      (perf cur-val spent)})))
+                                              {:ticker k
+                                               :amount v
+                                               :cur-price (usd cur-price)
+                                               :avg-price (usd (approx (avg-price spent v)))
+                                               :spent     (usd spent)
+                                               :cur-val   (usd cur-val)
+                                               :perf      (pct (perf cur-val spent))
+                                               })))
                                     []))]
     (separator)
-    (printf "Total spent: %sUSD\n" total-spent)
-    (printf "Current evaluation: %sUSD\n" cur-val)
-    (printf "Performance: %s%%\n" total-perf)
+    (printf "Total spent: %s\n" (usd total-spent))
+    (printf "Current evaluation: %s\n" (usd cur-val))
+    (printf "Performance: %s\n" (pct total-perf))
+    (separator)
     (println "Holdings:")
     (print-table holdings)
     (separator)
@@ -169,7 +187,7 @@
 
 (defn menu []
   (separator)
-  (println "Menu:")
+  (println "Menu:\n")
   (println "1 - Add buy transaction")
   (println "2 - Add sell transaction")
   (println "c - Clear all transactions")
@@ -214,7 +232,6 @@
 (comment
   (binding [db/*DEBUG*  false
             api/*DEBUG* false]
-    (-main)
-    )
+    (-main))
 
   )
