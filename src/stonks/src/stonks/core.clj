@@ -109,11 +109,11 @@
   (bigdec (get (api/get-quote ticker) "c")))
 
 (defn sum-cur-val [sum ticker amt]
-  (+ sum (* (get-cur-price ticker) amt)))
+  (+ sum (round2 (* (get-cur-price ticker) amt))))
 
 (defn sum-cost [sum tr]
   ;; Cost = Amt * Price
-  (+ sum (* (nth tr 2) (nth tr 3))))
+  (+ sum (round2 (* (nth tr 2) (nth tr 3)))))
 
 (defn spent
   "
@@ -160,11 +160,11 @@
         holdings    (->> ticker-amt
                          (reduce-kv (fn [h k v]
                                       (let [cur-price (get-cur-price k)
-                                            cur-val   (* v cur-price)
+                                            cur-val   (round2 (* v cur-price))
                                             spent     (spent k trans)]
                                         (conj h
-                                              {:ticker k
-                                               :amount v
+                                              {:ticker    k
+                                               :amount    v
                                                :cur-price (usd cur-price)
                                                :avg-price (usd (approx (avg-price spent v)))
                                                :spent     (usd spent)
