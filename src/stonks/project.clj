@@ -31,4 +31,12 @@
                           ; to debug image with GraalVM Dashboard
                           ;"-H:+DashboardAll"
                           "-H:Name=./target/${:name}"]
+            ;; https://github.com/upx/upx
+            ;; compress native image to reduce binary size
+            "compress"   ["shell"
+                          "upx"
+                          "-9"                              ; max compress ratio
+                          "./target/${:name}"
+                          "-o"
+                          "./target/${:name}-cli"]
             "run-native" ["shell" "./target/${:name}"]})
