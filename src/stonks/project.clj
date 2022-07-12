@@ -22,10 +22,13 @@
                           "--diagnostics-mode"
                           "--no-server"
                           "--no-fallback"
+                          ; to use with Docker from scratch, doesn't support MacOS
                           ;"--static"
                           "--install-exit-handlers"
                           "--enable-url-protocols=https"
                           "-jar" "./target/uberjar/${:uberjar-name:-${:name}-${:version}-standalone.jar}"
                           "-H:+ReportExceptionStackTraces"
+                          ; to debug image with GraalVM Dashboard
+                          ;"-H:+DashboardAll"
                           "-H:Name=./target/${:name}"]
             "run-native" ["shell" "./target/${:name}"]})
