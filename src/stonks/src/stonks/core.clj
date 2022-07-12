@@ -8,11 +8,15 @@
            (java.math RoundingMode))
   (:gen-class))
 
+(set! *warn-on-reflection* true)
+
 (def ascii-art-title-bird "  ___            ___  \n (o o)          (o o) \n(  V  ) Stonks (  V  )\n--m-m------------m-m--")
 (def ascii-art-title-owl " ^ ^            \n(O,O)           \n(   ) Stonks    \n-\"-\"------------")
+(def ascii-art-title-frame "\n +-++-++-++-++-++-+\n |S||t||o||n||k||s|\n +-++-++-++-++-++-+\n")
 
 (def ascii-art-titles [ascii-art-title-bird
-                       ascii-art-title-owl])
+                       ascii-art-title-owl
+                       ascii-art-title-frame])
 
 (defonce rand-ascii-art (nth ascii-art-titles (rand-int (count ascii-art-titles))))
 

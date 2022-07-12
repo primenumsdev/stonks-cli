@@ -1,22 +1,12 @@
 (ns stonks.api
-  (:require [org.httpkit.client :as http]
-            [jsonista.core :as j])
-  (:import (javax.net.ssl SSLEngine SSLParameters SNIHostName)
-           (java.net URI)))
+  (:require [clj-http.lite.client :as http]
+            [jsonista.core :as j]))
 
 (def ^:dynamic *DEBUG* false)
 
 (defn debug [& msg]
   (when *DEBUG*
     (apply prn "[DEBUG]" msg)))
-
-(defn- sni-configure
-  [^SSLEngine ssl-engine ^URI uri]
-  (let [^SSLParameters ssl-params (.getSSLParameters ssl-engine)]
-    (.setServerNames ssl-params [(SNIHostName. (.getHost uri))])
-    (.setSSLParameters ssl-engine ssl-params)))
-
-(def ^:private client (http/make-client {:ssl-configurer sni-configure}))
 
 (defonce ^:private base-url "https://finnhub.io/api")
 (defonce ^:private api-ver "/v1")
@@ -29,13 +19,9 @@
 (defn get-quote
   "https://finnhub.io/docs/api/quote"
   [ticker]
-  (let [req (http/request
-              {:client       client
-               :url          (str base-url api-ver "/quote")
-               :method       :get
-               :query-params {:symbol ticker}
-               :headers      {"X-Finnhub-Token" token}})
-        res @req]
+  (let [res (http/get (str base-url api-ver "/quote")
+                      {:query-params {:symbol ticker}
+                       :headers      {"X-Finnhub-Token" token}})]
     (debug "get-quote" ticker res)
     (-> res :body j/read-value)))
 

@@ -6,9 +6,26 @@
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [org.clojure/core.memoize "1.0.257"]
                  [com.taoensso/nippy "3.1.3"]
-                 [http-kit "2.6.0"]
-                 [metosin/jsonista "0.3.6"]]
-  :main ^:skip-aot stonks.core
+                 [metosin/jsonista "0.3.6"]
+                 [org.clj-commons/clj-http-lite "0.4.392"]]
+  :main stonks.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot      :all
-                       :jvm-opts ["-Dclojure.compiler.direct-linking=true"]}})
+                       :jvm-opts ["-Dclojure.compiler.direct-linking=true"
+                                  "-Dclojure.compiler.elide-meta=[:doc :file :line :added]"]}
+             :dev     {:plugins [[lein-shell "0.5.0"]]}}
+  :aliases {"native"     ["shell"
+                          "native-image"
+                          "--report-unsupported-elements-at-runtime"
+                          "--allow-incomplete-classpath"
+                          "--initialize-at-build-time"
+                          "--diagnostics-mode"
+                          "--no-server"
+                          "--no-fallback"
+                          ;"--static"
+                          "--install-exit-handlers"
+                          "--enable-url-protocols=https"
+                          "-jar" "./target/uberjar/${:uberjar-name:-${:name}-${:version}-standalone.jar}"
+                          "-H:+ReportExceptionStackTraces"
+                          "-H:Name=./target/${:name}"]
+            "run-native" ["shell" "./target/${:name}"]})
