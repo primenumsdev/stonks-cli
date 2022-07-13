@@ -5,7 +5,9 @@
             [stonks.db :as db]
             [stonks.api :as api])
   (:import (java.util Date)
-           (java.math RoundingMode))
+           (java.math RoundingMode)
+           (com.googlecode.lanterna.terminal.ansi ANSITerminal UnixTerminal)
+           (com.googlecode.lanterna.terminal DefaultTerminalFactory))
   (:gen-class))
 
 (set! *warn-on-reflection* true)
@@ -322,6 +324,27 @@
 (defn -main
   "Entry."
   [& args]
+
+  ;; using lanterna with GraalVM
+  ;; https://github.com/mabe02/lanterna/issues/481
+  (let [term (UnixTerminal.)
+        ]
+    (.enterPrivateMode term)
+    (doto term
+      (.setCursorPosition 10 5)
+      (.putCharacter \H)
+      (.putCharacter \e)
+      (.putCharacter \l)
+      (.putCharacter \l)
+      (.putCharacter \o)
+      (.putCharacter \!)
+      (.setCursorPosition 0 0))
+    (.flush term)
+    (let [inp (.readInput term)]
+      (prn "inp" inp))
+    (.exitPrivateMode term)
+    )
+
   ;; check userdata
   (if-not (userdata-exists?)
     (initial-setup!)

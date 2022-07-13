@@ -7,7 +7,8 @@
                  [org.clojure/core.memoize "1.0.257"]
                  [com.taoensso/nippy "3.1.3"]
                  [metosin/jsonista "0.3.6"]
-                 [org.clj-commons/clj-http-lite "0.4.392"]]
+                 [org.clj-commons/clj-http-lite "0.4.392"]
+                 [com.googlecode.lanterna/lanterna "3.1.1"]]
   :main stonks.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot      :all
