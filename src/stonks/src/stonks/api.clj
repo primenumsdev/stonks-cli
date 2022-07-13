@@ -1,5 +1,5 @@
 (ns stonks.api
-  (:require [clj-http.lite.client :as http]
+  (:require [stonks.http :as http]
             [jsonista.core :as j]))
 
 (def ^:dynamic *DEBUG* false)
@@ -19,14 +19,14 @@
 (defn get-quote
   "https://finnhub.io/docs/api/quote"
   [ticker]
-  (let [res (http/get (str base-url api-ver "/quote")
-                      {:query-params {:symbol ticker}
-                       :headers      {"X-Finnhub-Token" token}})]
+  (let [res (http/get
+              {:url          (str base-url api-ver "/quote")
+               :query-params {"symbol" ticker}
+               :headers      {"X-Finnhub-Token" token}})]
     (debug "get-quote" ticker res)
     (-> res :body j/read-value)))
 
 (comment
-
   (get (get-quote "AAPL") "c")
   ;{"d" -3.855 Change
   ; "dp" -2.7213, Percent change

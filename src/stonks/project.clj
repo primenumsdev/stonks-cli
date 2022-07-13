@@ -6,8 +6,7 @@
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [org.clojure/core.memoize "1.0.257"]
                  [com.taoensso/nippy "3.1.3"]
-                 [metosin/jsonista "0.3.6"]
-                 [org.clj-commons/clj-http-lite "0.4.392"]]
+                 [metosin/jsonista "0.3.6"]]
   :main stonks.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot      :all
@@ -29,7 +28,7 @@
                           "-jar" "./target/uberjar/${:uberjar-name:-${:name}-${:version}-standalone.jar}"
                           "-H:+ReportExceptionStackTraces"
                           ; to debug image with GraalVM Dashboard
-                          ;"-H:+DashboardAll"
+                          "-H:+DashboardAll"
                           "-H:Name=./target/${:name}"]
             ;; https://github.com/upx/upx
             ;; compress native image to reduce binary size
