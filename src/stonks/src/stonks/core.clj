@@ -3,11 +3,10 @@
             [clojure.java.io :as io]
             [clojure.core.memoize :as memo]
             [stonks.db :as db]
-            [stonks.api :as api])
+            [stonks.api :as api]
+            [stonks.term :as term])
   (:import (java.util Date)
-           (java.math RoundingMode)
-           (com.googlecode.lanterna.terminal.ansi ANSITerminal UnixTerminal)
-           (com.googlecode.lanterna.terminal DefaultTerminalFactory))
+           (java.math RoundingMode))
   (:gen-class))
 
 (set! *warn-on-reflection* true)
@@ -22,19 +21,13 @@
 
 (defonce rand-ascii-art (nth ascii-art-titles (rand-int (count ascii-art-titles))))
 
-(defn separator []
-  (print "\n"))
-
 (defn title []
-  (separator)
+  (newline)
   (println rand-ascii-art)
-  (separator))
+  (newline))
 
 (defn reset-cli []
-  ;; clear screen
-  (print (str (char 27) "[2J"))
-  ;; move cursor to the top left corner of the screen
-  (print (str (char 27) "[;H"))
+  (term/cls)
   (title))
 
 (defn utc-now! [] (Date.))
@@ -238,7 +231,7 @@
     (printf "Best performer: %s\n" best-perf)
     (printf "Worst performer: %s\n" worst-perf)
     (printf "Allocation: %s\n" ticker-alloc)
-    (separator)))
+    (newline)))
 
 (defn holdings []
   (let [trans      (db/get :transactions)
@@ -266,7 +259,7 @@
                                    []))]
     (println "Holdings:")
     (print-table [:ticker :amount :cur-price :avg-price :spent :cur-val :profit :perf] holdings)
-    (separator)))
+    (newline)))
 
 (defn transactions []
   (let [trans (db/get :transactions)]
@@ -274,7 +267,7 @@
     (print-table (mapv
                    #(zipmap [:type :ticker :amount :price :currency :time] %)
                    trans))
-    (separator)))
+    (newline)))
 
 (defn menu []
   (println "Menu:\n")
@@ -324,32 +317,12 @@
 (defn -main
   "Entry."
   [& args]
-
-  ;; using lanterna with GraalVM
-  ;; https://github.com/mabe02/lanterna/issues/481
-  (let [term (UnixTerminal.)
-        ]
-    (.enterPrivateMode term)
-    (doto term
-      (.setCursorPosition 10 5)
-      (.putCharacter \H)
-      (.putCharacter \e)
-      (.putCharacter \l)
-      (.putCharacter \l)
-      (.putCharacter \o)
-      (.putCharacter \!)
-      (.setCursorPosition 0 0))
-    (.flush term)
-    (let [inp (.readInput term)]
-      (prn "inp" inp))
-    (.exitPrivateMode term)
-    )
-
+  (term/cls)
   ;; check userdata
   (if-not (userdata-exists?)
     (initial-setup!)
     (load-userdata!))
-  (separator)
+  (newline)
   (menu))
 
 (comment
@@ -372,5 +345,38 @@
       (flush)))
 
   (print-progress-bar 56)
+
+  ;; example using term
+  ;; needs to be put inside -main to use in real term with lein run
+
+  (term/bell)
+
+
+  (term/print-cr "test")
+  (flush)
+  (term/print-cr "test2")
+  (flush)
+  (term/print-cr "test3")
+  (flush)
+  (term/print-cr "test4")
+  (flush)
+  (term/print-cr "test5")
+  (flush)
+
+  (term/print-at 1 10 "Hello\n")
+
+  (let [pos (term/get-cursor-position)]
+    (print (str "pos: " pos)))
+
+  (println "")
+
+  (term/save-cursor)
+  (doseq [i (range 100)]
+    ;(term/pr-at 10 11 (str "Loading..." i "%"))
+    (print (str "Loading..." i "%"))
+    (flush)
+    ;; restore cur pos
+    (term/restore-cursor)
+    (Thread/sleep 100))
 
   )
