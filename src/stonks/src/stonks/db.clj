@@ -116,7 +116,7 @@
             (debug "db loaded successfully")
             (catch Exception ex
               (debug (ex-message ex))
-              (println "db load error, aborting...")
+              (debug "db load error, aborting...")
               (throw ex))))))))
 
 (defn set [path val]

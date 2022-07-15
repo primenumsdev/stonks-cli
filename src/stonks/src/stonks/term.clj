@@ -127,9 +127,12 @@
       [(Integer/parseInt (second parts))
        (Integer/parseInt (first parts))])))
 
-(defn prompt-secret [msg]
-  (println msg)
+(defn read-secret-line []
   (switch-echo! false)
   (let [secret (read-line)]
     (switch-echo! true)
     secret))
+
+(defn prompt-secret [msg]
+  (println msg)
+  (read-secret-line))

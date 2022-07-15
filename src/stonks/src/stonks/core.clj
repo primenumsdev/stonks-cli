@@ -90,11 +90,18 @@
       (db/set :last-login (utc-now!))
       (db/set :transactions []))))
 
-(defn load-userdata! []
-  (let [pass (term/prompt-secret "Hello, please enter your password:")]
+(defn connect-db! [pass]
+  (try
     (db/connect!
       {:file-path (userdata-path)
-       :password  pass}))
+       :password  pass})
+    (catch Exception _
+      (println "Invalid password, try again.")
+      (connect-db! (term/read-secret-line)))))
+
+(defn load-userdata! []
+  (let [pass (term/prompt-secret "Hello, please enter your password:")]
+    (connect-db! pass))
   (reset-cli)
   (printf "Welcome back, %s!\n" (db/get :username))
   (printf "Last login: %s\n" (db/get :last-login))
