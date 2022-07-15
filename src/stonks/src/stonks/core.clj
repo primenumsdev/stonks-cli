@@ -226,32 +226,36 @@
     (printf "Allocation: %s\n" (:ticker-alloc @data-task))
     (newline)))
 
-(defn holdings []
+(defn get-holdings-data []
   (let [trans      (db/get :transactions)
         ticker-amt (->> trans
                         (group-by second)
                         (reduce-kv (fn [m k v]
                                      (assoc m k (reduce sum-amt 0 v)))
-                                   {}))
-        holdings   (->> ticker-amt
-                        (reduce-kv (fn [h k v]
-                                     (let [cur-price (get-cur-price k)
-                                           cur-val   (round2 (* v cur-price))
-                                           spent     (spent k trans)]
-                                       (conj h
-                                             {:ticker     k
-                                              :amount     v
-                                              :cur-price  (usd cur-price)
-                                              :avg-price  (usd (approx (avg-price spent v)))
-                                              :spent      (usd spent)
-                                              :cur-val    (usd cur-val)
-                                              :profit-val (- cur-val spent)
-                                              :profit     (usd (- cur-val spent))
-                                              :perf       (pct (perf cur-val spent))
-                                              })))
-                                   []))]
+                                   {}))]
+    (->> ticker-amt
+         (reduce-kv (fn [h k v]
+                      (let [cur-price (get-cur-price k)
+                            cur-val   (round2 (* v cur-price))
+                            spent     (spent k trans)]
+                        (conj h
+                              {:ticker     k
+                               :amount     v
+                               :cur-price  (usd cur-price)
+                               :avg-price  (usd (approx (avg-price spent v)))
+                               :spent      (usd spent)
+                               :cur-val    (usd cur-val)
+                               :profit-val (- cur-val spent)
+                               :profit     (usd (- cur-val spent))
+                               :perf       (pct (perf cur-val spent))
+                               })))
+                    []))))
+
+(defn holdings []
+  (let [holdings-task (future (get-holdings-data))]
+    (term/spinner "Loading" (complement #(future-done? holdings-task)))
     (println "Holdings:")
-    (print-table [:ticker :amount :cur-price :avg-price :spent :cur-val :profit :perf] holdings)
+    (print-table [:ticker :amount :cur-price :avg-price :spent :cur-val :profit :perf] @holdings-task)
     (newline)))
 
 (defn transactions []

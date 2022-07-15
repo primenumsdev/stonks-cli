@@ -14,29 +14,34 @@
                        :jvm-opts ["-Dclojure.compiler.direct-linking=true"
                                   "-Dclojure.compiler.elide-meta=[:doc :file :line :added]"]}
              :dev     {:plugins [[lein-shell "0.5.0"]]}}
-  :aliases {"native"     ["shell"
-                          "native-image"
-                          "--report-unsupported-elements-at-runtime"
-                          "--allow-incomplete-classpath"
-                          "--initialize-at-build-time"
-                          "--diagnostics-mode"
-                          "--no-server"
-                          "--no-fallback"
-                          ; to use with Docker from scratch, doesn't support MacOS
-                          ;"--static"
-                          "--install-exit-handlers"
-                          "--enable-url-protocols=https"
-                          "-jar" "./target/uberjar/${:uberjar-name:-${:name}-${:version}-standalone.jar}"
-                          "-H:+ReportExceptionStackTraces"
-                          ; to debug image with GraalVM Dashboard
-                          ;"-H:+DashboardAll"
-                          "-H:Name=./target/${:name}"]
+  :aliases {"native"   ["shell"
+                        "native-image"
+                        "--report-unsupported-elements-at-runtime"
+                        "--allow-incomplete-classpath"
+                        "--initialize-at-build-time"
+                        "--diagnostics-mode"
+                        "--no-server"
+                        "--no-fallback"
+                        ; to use with Docker from scratch, doesn't support MacOS
+                        ;"--static"
+                        "--install-exit-handlers"
+                        "--enable-url-protocols=https"
+                        "-jar" "./target/uberjar/${:uberjar-name:-${:name}-${:version}-standalone.jar}"
+                        "-H:+ReportExceptionStackTraces"
+                        ; to debug image with GraalVM Dashboard
+                        ;"-H:+DashboardAll"
+                        "-H:Name=./target/${:name}-bin"]
             ;; https://github.com/upx/upx
             ;; compress native image to reduce binary size
-            "compress"   ["shell"
-                          "upx"
-                          "-9"                              ; max compress ratio
-                          "./target/${:name}"
-                          "-o"
-                          "./target/${:name}-cli"]
-            "run-native" ["shell" "./target/${:name}"]})
+            "compress" ["shell"
+                        "upx"
+                        ; max compress ratio
+                        "-9"
+                        "./target/${:name}-bin"
+                        "-o"
+                        "./target/${:name}-cli"]
+            "build"    ["do"
+                        ["clean"]
+                        ["uberjar"]
+                        ["native"]
+                        ["compress"]]})

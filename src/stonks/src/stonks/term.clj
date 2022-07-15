@@ -1,5 +1,5 @@
 (ns stonks.term
-  (:refer-clojure :exclude [print println read-line newline *in* *out*])
+  (:refer-clojure :exclude [print println read-line newline *in* *out* flush])
   (:require [clojure.string :as str])
   (:import (java.io File InputStreamReader OutputStreamWriter BufferedReader)
            (java.lang ProcessBuilder ProcessBuilder$Redirect)
@@ -38,18 +38,27 @@
 (def ^String sys-newline
   (System/getProperty "line.separator"))
 
+(defn flush []
+  (.flush *stdout*))
+
+(defn append [^CharSequence csq]
+  (.append *stdout* csq))
+
+(defn write [^String txt]
+  (.write *stdout* txt 0 ^Integer (.length txt)))
+
 (defn newline []
-  (.append *stdout* sys-newline)
-  (.flush *stdout*))
+  (append sys-newline)
+  (flush))
 
-(defn print [^String txt]
-  (.write *stdout* txt 0 ^Integer (.length txt))
-  (.flush *stdout*))
+(defn print [txt]
+  (write txt)
+  (flush))
 
-(defn println [^String txt]
-  (.write *stdout* txt 0 ^Integer (.length txt))
-  (.append *stdout* sys-newline)
-  (.flush *stdout*))
+(defn println [txt]
+  (write txt)
+  (append sys-newline)
+  (flush))
 
 (defn read-line []
   (.readLine *stdin*))
@@ -63,7 +72,7 @@
   "Makes bell sound."
   []
   (.write *stdout* 7)
-  (.flush *stdout*))
+  (flush))
 
 (defn move-cursor
   "
