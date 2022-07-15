@@ -1,5 +1,5 @@
 (ns stonks.term
-  (:refer-clojure :exclude [print println read-line newline *in* *out* flush])
+  (:refer-clojure :exclude [print printf println read-line newline *in* *out* flush])
   (:require [clojure.string :as str])
   (:import (java.io File InputStreamReader OutputStreamWriter BufferedReader)
            (java.lang ProcessBuilder ProcessBuilder$Redirect)
@@ -54,6 +54,9 @@
 (defn print [txt]
   (write txt)
   (flush))
+
+(defn printf [fmt & args]
+  (print (apply format fmt args)))
 
 (defn println [txt]
   (write txt)

@@ -22,9 +22,9 @@
 (defonce rand-ascii-art (nth ascii-art-titles (rand-int (count ascii-art-titles))))
 
 (defn title []
-  (newline)
-  (println rand-ascii-art)
-  (newline))
+  (term/newline)
+  (term/println rand-ascii-art)
+  (term/newline))
 
 (defn reset-cli []
   (term/cls)
@@ -46,8 +46,8 @@
 
 (defn initial-setup! []
   (let [username (term/prompt-str "Hello, what is your name?")]
-    (printf "Hi %s!\n" username)
-    (println "We are going to setup a new user data file for you.")
+    (term/printf "Hi %s!\n" username)
+    (term/println "We are going to setup a new user data file for you.")
     (let [pass (term/prompt-secret "Please specify a password:")]
       (db/create!
         {:file-path (userdata-path)
@@ -70,15 +70,15 @@
       {:file-path (userdata-path)
        :password  pass})
     (catch Exception _
-      (println "Invalid password, try again.")
+      (term/println "Invalid password, try again.")
       (connect-db! (term/read-secret-line)))))
 
 (defn load-userdata! []
   (let [pass (term/prompt-secret "Hello, please enter your password:")]
     (connect-db! pass))
   (reset-cli)
-  (printf "Welcome back, %s!\n" (db/get :username))
-  (printf "Last login: %s\n" (db/get :last-login))
+  (term/printf "Welcome back, %s!\n" (db/get :username))
+  (term/printf "Last login: %s\n" (db/get :last-login))
   (db/with-save!
     (db/set :last-login (utc-now!)))
   (api/set-token! (db/get :finnhub-token)))
@@ -216,15 +216,15 @@
 (defn stats []
   (let [data-task (future (get-stats-data))]
     (term/spinner "Loading" (complement #(future-done? data-task)))
-    (println "Stats:\n")
-    (printf "Total spent: %s\n" (usd (:total-spent @data-task)))
-    (printf "Current evaluation: %s\n" (usd (:cur-val @data-task)))
-    (printf "Total profit: %s\n" (:total-profit @data-task))
-    (printf "Performance: %s\n" (pct (:total-perf @data-task)))
-    (printf "Best performer: %s\n" (:best-perf @data-task))
-    (printf "Worst performer: %s\n" (:worst-perf @data-task))
-    (printf "Allocation: %s\n" (:ticker-alloc @data-task))
-    (newline)))
+    (term/println "Stats:\n")
+    (term/printf "Total spent: %s\n" (usd (:total-spent @data-task)))
+    (term/printf "Current evaluation: %s\n" (usd (:cur-val @data-task)))
+    (term/printf "Total profit: %s\n" (:total-profit @data-task))
+    (term/printf "Performance: %s\n" (pct (:total-perf @data-task)))
+    (term/printf "Best performer: %s\n" (:best-perf @data-task))
+    (term/printf "Worst performer: %s\n" (:worst-perf @data-task))
+    (term/printf "Allocation: %s\n" (:ticker-alloc @data-task))
+    (term/newline)))
 
 (defn get-holdings-data []
   (let [trans      (db/get :transactions)
@@ -254,44 +254,47 @@
 (defn holdings []
   (let [holdings-task (future (get-holdings-data))]
     (term/spinner "Loading" (complement #(future-done? holdings-task)))
-    (println "Holdings:")
+    (term/println "Holdings:")
     (print-table [:ticker :amount :cur-price :avg-price :spent :cur-val :profit :perf] @holdings-task)
-    (newline)))
+    (term/newline)))
 
 (defn transactions []
   (let [trans (db/get :transactions)]
-    (println "Transactions:")
+    (term/println "Transactions:")
     (print-table (mapv
                    #(zipmap [:type :ticker :amount :price :currency :time] %)
                    trans))
-    (newline)))
+    (term/newline)))
 
 (defn menu []
-  (println "Menu:\n")
-  (println "1 - Add buy transaction")
-  (println "2 - Add sell transaction")
-  (println "C - Clear all transactions")
-  (println "S - Show stats")
-  (println "H - Show holdings")
-  (println "T - Show transactions")
-  (println "Q - Exit")
+  (term/println "Menu:\n")
+  (term/println "1 - Add buy transaction")
+  (term/println "2 - Add sell transaction")
+  (term/println "C - Clear all transactions")
+  (term/println "S - Show stats")
+  (term/println "H - Show holdings")
+  (term/println "T - Show transactions")
+  (term/println "Q - Exit")
   (term/switch-echo! false)
   (term/switch-canonical! false)
   ;; wait user input
-  (case (term/read-char)
+  (case (let [rc (term/read-char)]
+          (term/switch-echo! true)
+          (term/switch-canonical! true)
+          rc)
     \1 (do
          (reset-cli)
-         (println "Add new buy transaction")
+         (term/println "Add new buy transaction")
          (add-new-transaction :buy)
          (recur))
     \2 (do
          (reset-cli)
-         (println "Add new sell transaction")
+         (term/println "Add new sell transaction")
          (add-new-transaction :sell)
          (recur))
     \C (do
          (reset-cli)
-         (println "Clearing all transactions...")
+         (term/println "Clearing all transactions...")
          (db/with-save!
            (db/set :transactions []))
          (recur))
@@ -308,12 +311,10 @@
          (transactions)
          (recur))
     \Q (do
-         (term/switch-echo! true)
-         (term/switch-canonical! true)
-         (println "Bye bye!")
+         (term/println "Bye bye!")
          (shutdown-agents))
     (do
-      (println "Invalid input, try again.")
+      (term/println "Invalid input, try again.")
       (recur))))
 
 (defn -main
@@ -324,7 +325,7 @@
   (if-not (userdata-exists?)
     (initial-setup!)
     (load-userdata!))
-  (newline)
+  (term/newline)
   (menu))
 
 (comment
@@ -343,8 +344,8 @@
               (= i (int (/ percent 2))) (.append bar ">")
               :else (.append bar " ")))
       (.append bar (str "] " percent "%     "))
-      (print "\r" (.toString bar))
-      (flush)))
+      (term/print "\r" (.toString bar))
+      (term/flush)))
 
   (print-progress-bar 56)
 
@@ -355,28 +356,28 @@
 
 
   (term/print-cr "test")
-  (flush)
+  (term/flush)
   (term/print-cr "test2")
-  (flush)
+  (term/flush)
   (term/print-cr "test3")
-  (flush)
+  (term/flush)
   (term/print-cr "test4")
-  (flush)
+  (term/flush)
   (term/print-cr "test5")
-  (flush)
+  (term/flush)
 
   (term/print-at 1 10 "Hello\n")
 
   (let [pos (term/get-cursor-position)]
-    (print (str "pos: " pos)))
+    (term/print (str "pos: " pos)))
 
-  (println "")
+  (term/println "")
 
   (term/save-cursor)
   (doseq [i (range 100)]
     ;(term/pr-at 10 11 (str "Loading..." i "%"))
-    (print (str "Loading..." i "%"))
-    (flush)
+    (term/print (str "Loading..." i "%"))
+    (term/flush)
     ;; restore cur pos
     (term/restore-cursor)
     (Thread/sleep 100))
