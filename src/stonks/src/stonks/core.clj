@@ -254,43 +254,45 @@
   (println "Menu:\n")
   (println "1 - Add buy transaction")
   (println "2 - Add sell transaction")
-  (println "c - Clear all transactions")
-  (println "s - Show stats")
-  (println "h - Show holdings")
-  (println "t - Show transactions")
-  (println "q - Exit")
+  (println "C - Clear all transactions")
+  (println "S - Show stats")
+  (println "H - Show holdings")
+  (println "T - Show transactions")
+  (println "Q - Exit")
+  (term/switch-echo! false)
+  (term/switch-canonical! false)
   ;; wait user input
-  (case (read-line)
-    "1" (do
-          (reset-cli)
-          (println "Add new buy transaction")
-          (add-new-transaction :buy)
-          (recur))
-    "2" (do
-          (reset-cli)
-          (println "Add new sell transaction")
-          (add-new-transaction :sell)
-          (recur))
-    ("c" "C") (do
-                (reset-cli)
-                (println "Clearing all transactions...")
-                (db/with-save!
-                  (db/set :transactions []))
-                (recur))
-    ("s" "S") (do
-                (reset-cli)
-                (stats)
-                (recur))
-    ("h" "H") (do
-                (reset-cli)
-                (holdings)
-                (recur))
-    ("t" "T") (do
-                (reset-cli)
-                (transactions)
-                (recur))
-    ("q" "Q") (do
-                (println "Bye bye!"))
+  (case (term/read-char)
+    \1 (do
+         (reset-cli)
+         (println "Add new buy transaction")
+         (add-new-transaction :buy)
+         (recur))
+    \2 (do
+         (reset-cli)
+         (println "Add new sell transaction")
+         (add-new-transaction :sell)
+         (recur))
+    \C (do
+         (reset-cli)
+         (println "Clearing all transactions...")
+         (db/with-save!
+           (db/set :transactions []))
+         (recur))
+    \S (do
+         (reset-cli)
+         (stats)
+         (recur))
+    \H (do
+         (reset-cli)
+         (holdings)
+         (recur))
+    \T (do
+         (reset-cli)
+         (transactions)
+         (recur))
+    \Q (do
+         (println "Bye bye!"))
     (do
       (println "Invalid input, try again.")
       (recur))))

@@ -143,6 +143,11 @@
 (defn read-int []
   (Integer/parseInt (str (read-line))))
 
+(defn read-char
+  "Reads char from System.in and convert to upper case (default ASCII) char."
+  []
+  (char (.hashCode (str/upper-case (char (.read *in*))))))
+
 (defn prompt-str [msg]
   (println msg)
   (read-line))
