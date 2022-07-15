@@ -174,7 +174,7 @@
                       (assoc m k (div-round2 (bigdec v) total%1)))
                     {}))))
 
-(defn stats []
+(defn get-stats-data []
   (let [trans        (db/get :transactions)
         total-spent  (spent trans)
         ticker-amt   (->> trans
@@ -204,14 +204,26 @@
                                                 })))
                                      []))
         [best-perf worst-perf] (best-worst-perf holdings)]
+    {:total-spent  total-spent
+     :cur-val      cur-val
+     :total-profit total-profit
+     :total-perf   total-perf
+     :best-perf    best-perf
+     :worst-perf   worst-perf
+     :ticker-alloc ticker-alloc
+     }))
+
+(defn stats []
+  (let [data-task (future (get-stats-data))]
+    (term/spinner "Loading" (complement #(future-done? data-task)))
     (println "Stats:\n")
-    (printf "Total spent: %s\n" (usd total-spent))
-    (printf "Current evaluation: %s\n" (usd cur-val))
-    (printf "Total profit: %s\n" total-profit)
-    (printf "Performance: %s\n" (pct total-perf))
-    (printf "Best performer: %s\n" best-perf)
-    (printf "Worst performer: %s\n" worst-perf)
-    (printf "Allocation: %s\n" ticker-alloc)
+    (printf "Total spent: %s\n" (usd (:total-spent @data-task)))
+    (printf "Current evaluation: %s\n" (usd (:cur-val @data-task)))
+    (printf "Total profit: %s\n" (:total-profit @data-task))
+    (printf "Performance: %s\n" (pct (:total-perf @data-task)))
+    (printf "Best performer: %s\n" (:best-perf @data-task))
+    (printf "Worst performer: %s\n" (:worst-perf @data-task))
+    (printf "Allocation: %s\n" (:ticker-alloc @data-task))
     (newline)))
 
 (defn holdings []
@@ -292,7 +304,10 @@
          (transactions)
          (recur))
     \Q (do
-         (println "Bye bye!"))
+         (term/switch-echo! true)
+         (term/switch-canonical! true)
+         (println "Bye bye!")
+         (shutdown-agents))
     (do
       (println "Invalid input, try again.")
       (recur))))

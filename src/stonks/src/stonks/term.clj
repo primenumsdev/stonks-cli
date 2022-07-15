@@ -1,7 +1,8 @@
 (ns stonks.term
   (:require [clojure.string :as str])
   (:import (java.io File)
-           (java.lang ProcessBuilder$Redirect)))
+           (java.lang ProcessBuilder ProcessBuilder$Redirect)
+           (java.util ArrayList List Vector)))
 
 ;; ANSI terminal interaction
 ;; https://en.wikipedia.org/wiki/ANSI_escape_code
@@ -50,6 +51,18 @@
   ([x y]
    (csi (str y ";" x "H"))))
 
+(defn move-cursor-to-col [x]
+  (csi (str x "G")))
+
+(defn erase-line-to-cursor []
+  (csi "1K"))
+
+(defn erase-line-after-cursor []
+  (csi "0K"))
+
+(defn erase-cur-line []
+  (csi "2K"))
+
 (defn cls
   "Clears screen and moves cursor to top left corner."
   []
@@ -83,9 +96,9 @@
 (defn run-ssty!
   "Runs /bin/stty command."
   [cmds-vec]
-  (let [cmds (into-array (cons stty cmds-vec))]
+  (let [cmds (ArrayList. ^Vector (vec (cons stty cmds-vec)))]
     (->
-      (ProcessBuilder. cmds)
+      (ProcessBuilder. ^List cmds)
       (.redirectInput (ProcessBuilder$Redirect/from tty))
       .start
       .waitFor)))
@@ -146,7 +159,7 @@
 (defn read-char
   "Reads char from System.in and convert to upper case (default ASCII) char."
   []
-  (char (.hashCode (str/upper-case (char (.read *in*))))))
+  (char (.hashCode (str/upper-case (char (.read System/in))))))
 
 (defn prompt-str [msg]
   (println msg)
@@ -167,3 +180,22 @@
     (catch NumberFormatException _
       (println "Invalid number format, try again.")
       (prompt-big-dec msg))))
+
+(defn spinner [msg loading-fn?]
+  (let [frames ["∙∙∙∙∙∙∙∙"
+                "●∙∙∙∙∙∙∙"
+                "∙●∙∙∙∙∙∙"
+                "∙∙●∙∙∙∙∙"
+                "∙∙∙●∙∙∙∙"
+                "∙∙∙∙●∙∙∙"
+                "∙∙∙∙∙●∙∙"
+                "∙∙∙∙∙∙●∙"
+                "∙∙∙∙∙∙∙●"]]
+    (while (loading-fn?)
+      (doseq [frame frames]
+        (print-cr (str msg " " frame))
+        (flush)
+        (Thread/sleep 125))))
+  (erase-cur-line)
+  (move-cursor-to-col 1)
+  )
