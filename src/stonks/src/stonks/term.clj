@@ -1,8 +1,10 @@
 (ns stonks.term
+  (:refer-clojure :exclude [print println read-line newline *in* *out*])
   (:require [clojure.string :as str])
-  (:import (java.io File)
+  (:import (java.io File InputStreamReader OutputStreamWriter BufferedReader)
            (java.lang ProcessBuilder ProcessBuilder$Redirect)
-           (java.util ArrayList List Vector)))
+           (java.util ArrayList List Vector)
+           (java.nio.charset Charset)))
 
 ;; ANSI terminal interaction
 ;; https://en.wikipedia.org/wiki/ANSI_escape_code
@@ -23,23 +25,45 @@
 ;; /dev/tty doesn't 'contain' anything as such, but you can read from it and write to it (for what it's worth).
 ;; I can't think of a good use for it, but there are similar files which are very useful for simple IO operations
 ;; (e.g. /dev/ttyS0 is normally your serial port)
-(def tty (File. "/dev/tty"))
+(defonce ^:private tty (File. "/dev/tty"))
 
 ;; stty is a tool used to set the input and output settings for the terminal communication interface
 ;; https://man7.org/linux/man-pages/man1/stty.1.html
-(def stty "/bin/stty")
+(defonce ^:private stty "/bin/stty")
+
+(def ^:dynamic ^BufferedReader *stdin* (BufferedReader. (InputStreamReader. System/in)))
+
+(def ^:dynamic ^OutputStreamWriter *stdout* (OutputStreamWriter. System/out ^Charset (Charset/defaultCharset)))
+
+(def ^String sys-newline
+  (System/getProperty "line.separator"))
+
+(defn newline []
+  (.append *stdout* sys-newline)
+  (.flush *stdout*))
+
+(defn print [^String txt]
+  (.write *stdout* txt 0 ^Integer (.length txt))
+  (.flush *stdout*))
+
+(defn println [^String txt]
+  (.write *stdout* txt 0 ^Integer (.length txt))
+  (.append *stdout* sys-newline)
+  (.flush *stdout*))
+
+(defn read-line []
+  (.readLine *stdin*))
 
 (defn csi
   "Control Sequence Introducer."
   [code]
-  (.write *out* (str ESC "[" code))
-  (flush))
+  (print (str ESC "[" code)))
 
 (defn bell
   "Makes bell sound."
   []
-  (.write *out* 7)
-  (flush))
+  (.write *stdout* 7)
+  (.flush *stdout*))
 
 (defn move-cursor
   "
@@ -123,9 +147,9 @@
     ;; (char 82) => \R
     (while (not= @c 82)
       ;; wait till has something to read
-      (while (not (.ready *in*))
+      (while (not (.ready *stdin*))
         (Thread/sleep 250))
-      (reset! c (.read *in*))
+      (reset! c (.read *stdin*))
       ;; (char 27) => \ESC
       (if (= @c 27)
         (.append res "^")
@@ -159,7 +183,7 @@
 (defn read-char
   "Reads char from System.in and convert to upper case (default ASCII) char."
   []
-  (char (.hashCode (str/upper-case (char (.read System/in))))))
+  (char (.hashCode (str/upper-case (char (.read *stdin*))))))
 
 (defn prompt-str [msg]
   (println msg)
@@ -194,8 +218,6 @@
     (while (loading-fn?)
       (doseq [frame frames]
         (print-cr (str msg " " frame))
-        (flush)
         (Thread/sleep 125))))
   (erase-cur-line)
-  (move-cursor-to-col 1)
-  )
+  (move-cursor-to-col 1))
