@@ -96,7 +96,7 @@
       (db/set :transactions []))))
 
 (defn load-userdata! []
-  (let [pass (prompt-str "Hello, please enter your password:")]
+  (let [pass (term/prompt-secret "Hello, please enter your password:")]
     (db/connect!
       {:file-path (userdata-path)
        :password  pass}))
