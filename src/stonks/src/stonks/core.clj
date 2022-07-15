@@ -41,47 +41,21 @@
 (defn userdata-exists? []
   (.exists (io/file (userdata-path))))
 
-(defn read-big-dec []
-  (BigDecimal. (str (read-line))))
-
-(defn read-int []
-  (Integer/parseInt (str (read-line))))
-
-(defn prompt-str [msg]
-  (println msg)
-  (read-line))
-
-(defn prompt-int [msg]
-  (println msg)
-  (try
-    (read-int)
-    (catch NumberFormatException _
-      (println "Invalid number format, try again.")
-      (prompt-int msg))))
-
-(defn prompt-big-dec [msg]
-  (println msg)
-  (try
-    (read-big-dec)
-    (catch NumberFormatException _
-      (println "Invalid number format, try again.")
-      (prompt-int msg))))
-
 (defn round2 [^BigDecimal big-dec]
   (.setScale (bigdec big-dec) 2 RoundingMode/HALF_UP))
 
 (defn initial-setup! []
-  (let [username (prompt-str "Hello, what is your name?")]
+  (let [username (term/prompt-str "Hello, what is your name?")]
     (printf "Hi %s!\n" username)
     (println "We are going to setup a new user data file for you.")
-    (let [pass (prompt-str "Please specify a password:")]
+    (let [pass (term/prompt-secret "Please specify a password:")]
       (db/create!
         {:file-path (userdata-path)
          :name      "userdata"
          :password  pass}
         {:override? true
          :discard?  true}))
-    (let [token (prompt-str "Enter finnhub.io API token:")]
+    (let [token (term/prompt-secret "Enter finnhub.io API token:")]
       (db/set :finnhub-token token)
       (api/set-token! token))
     (db/with-save!
@@ -110,9 +84,9 @@
   (api/set-token! (db/get :finnhub-token)))
 
 (defn add-new-transaction [trans-type]
-  (let [ticker (prompt-str "Ticker:")
-        amt    (prompt-int "Amount:")
-        price  (prompt-big-dec "Price:")]
+  (let [ticker (term/prompt-str "Ticker:")
+        amt    (term/prompt-int "Amount:")
+        price  (term/prompt-big-dec "Price:")]
     (db/with-save!
       (db/update :transactions #(conj % [trans-type ticker amt price "USD" (utc-now!)])))))
 

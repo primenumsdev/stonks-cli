@@ -136,3 +136,29 @@
 (defn prompt-secret [msg]
   (println msg)
   (read-secret-line))
+
+(defn read-big-dec []
+  (BigDecimal. (str (read-line))))
+
+(defn read-int []
+  (Integer/parseInt (str (read-line))))
+
+(defn prompt-str [msg]
+  (println msg)
+  (read-line))
+
+(defn prompt-int [msg]
+  (println msg)
+  (try
+    (read-int)
+    (catch NumberFormatException _
+      (println "Invalid number format, try again.")
+      (prompt-int msg))))
+
+(defn prompt-big-dec [msg]
+  (println msg)
+  (try
+    (read-big-dec)
+    (catch NumberFormatException _
+      (println "Invalid number format, try again.")
+      (prompt-big-dec msg))))
