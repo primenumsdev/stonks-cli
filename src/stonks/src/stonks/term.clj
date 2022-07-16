@@ -217,19 +217,24 @@
       (println "Invalid number format, try again.")
       (prompt-big-dec msg))))
 
-(defn spinner [msg loading-fn?]
-  (let [frames ["∙∙∙∙∙∙∙∙"
-                "●∙∙∙∙∙∙∙"
-                "∙●∙∙∙∙∙∙"
-                "∙∙●∙∙∙∙∙"
-                "∙∙∙●∙∙∙∙"
-                "∙∙∙∙●∙∙∙"
-                "∙∙∙∙∙●∙∙"
-                "∙∙∙∙∙∙●∙"
-                "∙∙∙∙∙∙∙●"]]
-    (while (loading-fn?)
-      (doseq [frame frames]
-        (print-cr (str msg " " frame))
-        (Thread/sleep 125))))
+(defonce default-spinner-frames ["∙∙∙∙∙∙∙∙"
+                                 "●∙∙∙∙∙∙∙"
+                                 "∙●∙∙∙∙∙∙"
+                                 "∙∙●∙∙∙∙∙"
+                                 "∙∙∙●∙∙∙∙"
+                                 "∙∙∙∙●∙∙∙"
+                                 "∙∙∙∙∙●∙∙"
+                                 "∙∙∙∙∙∙●∙"
+                                 "∙∙∙∙∙∙∙●"])
+
+(defonce default-spinner-frame-timeout 125)
+
+(defn spinner [{:keys [msg loading-fn? frames timeout]
+                :or   {frames  default-spinner-frames
+                       timeout default-spinner-frame-timeout}}]
+  (while (loading-fn?)
+    (doseq [frame frames]
+      (print-cr (str msg " " frame))
+      (Thread/sleep timeout)))
   (erase-cur-line)
   (move-cursor-to-col 1))

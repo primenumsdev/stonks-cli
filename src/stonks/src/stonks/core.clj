@@ -213,9 +213,21 @@
      :ticker-alloc ticker-alloc
      }))
 
+(defn future-spinner [fut]
+  ;; spinners https://github.com/sindresorhus/cli-spinners/blob/main/spinners.json
+  (term/spinner {:msg         "Loading"
+                 :loading-fn? (complement #(future-done? fut))
+                 :frames      ["▰▱▱▱▱▱▱"
+                               "▰▰▱▱▱▱▱"
+                               "▰▰▰▱▱▱▱"
+                               "▰▰▰▰▱▱▱"
+                               "▰▰▰▰▰▱▱"
+                               "▰▰▰▰▰▰▱"
+                               "▰▰▰▰▰▰▰"]}))
+
 (defn stats []
   (let [data-task (future (get-stats-data))]
-    (term/spinner "Loading" (complement #(future-done? data-task)))
+    (future-spinner data-task)
     (term/println "Stats:\n")
     (term/printf "Total spent: %s\n" (usd (:total-spent @data-task)))
     (term/printf "Current evaluation: %s\n" (usd (:cur-val @data-task)))
@@ -253,7 +265,7 @@
 
 (defn holdings []
   (let [holdings-task (future (get-holdings-data))]
-    (term/spinner "Loading" (complement #(future-done? holdings-task)))
+    (future-spinner holdings-task)
     (term/println "Holdings:")
     (print-table [:ticker :amount :cur-price :avg-price :spent :cur-val :profit :perf] @holdings-task)
     (term/newline)))
