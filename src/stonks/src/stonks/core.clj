@@ -1,6 +1,5 @@
 (ns stonks.core
-  (:require [clojure.pprint :refer [print-table]]
-            [clojure.java.io :as io]
+  (:require [clojure.java.io :as io]
             [clojure.core.memoize :as memo]
             [stonks.db :as db]
             [stonks.api :as api]
@@ -23,7 +22,7 @@
 
 (defn title []
   (term/newline)
-  (term/println rand-ascii-art)
+  (term/println (term/with-fg-color 40 rand-ascii-art))
   (term/newline))
 
 (defn reset-cli []
@@ -216,14 +215,7 @@
 (defn future-spinner [fut]
   ;; spinners https://github.com/sindresorhus/cli-spinners/blob/main/spinners.json
   (term/spinner {:msg         "Loading"
-                 :loading-fn? (complement #(future-done? fut))
-                 :frames      ["▰▱▱▱▱▱▱"
-                               "▰▰▱▱▱▱▱"
-                               "▰▰▰▱▱▱▱"
-                               "▰▰▰▰▱▱▱"
-                               "▰▰▰▰▰▱▱"
-                               "▰▰▰▰▰▰▱"
-                               "▰▰▰▰▰▰▰"]}))
+                 :loading-fn? (complement #(future-done? fut))}))
 
 (defn stats []
   (let [data-task (future (get-stats-data))]
@@ -267,13 +259,13 @@
   (let [holdings-task (future (get-holdings-data))]
     (future-spinner holdings-task)
     (term/println "Holdings:")
-    (print-table [:ticker :amount :cur-price :avg-price :spent :cur-val :profit :perf] @holdings-task)
+    (term/table [:ticker :amount :cur-price :avg-price :spent :cur-val :profit :perf] @holdings-task)
     (term/newline)))
 
 (defn transactions []
   (let [trans (db/get :transactions)]
     (term/println "Transactions:")
-    (print-table (mapv
+    (term/table (mapv
                    #(zipmap [:type :ticker :amount :price :currency :time] %)
                    trans))
     (term/newline)))

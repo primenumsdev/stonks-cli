@@ -66,10 +66,13 @@
 (defn read-line []
   (.readLine *stdin*))
 
+(defn with-csi [code]
+  (str ESC "[" code))
+
 (defn csi
   "Control Sequence Introducer."
   [code]
-  (print (str ESC "[" code)))
+  (print (with-csi code)))
 
 (defn bell
   "Makes bell sound."
@@ -104,6 +107,16 @@
   []
   (csi "2J")
   (move-cursor))
+
+(defn with-fg-color [id txt]
+  (str (with-csi (str "38;5;" id "m" txt))
+       (with-csi "0m")))
+
+(defn set-fg-color [id]
+  (csi (str "38;5;" id "m")))
+
+(defn reset-fg-color []
+  (csi "0m"))
 
 (defn print-at
   "
@@ -217,24 +230,86 @@
       (println "Invalid number format, try again.")
       (prompt-big-dec msg))))
 
-(defonce default-spinner-frames ["∙∙∙∙∙∙∙∙"
-                                 "●∙∙∙∙∙∙∙"
-                                 "∙●∙∙∙∙∙∙"
-                                 "∙∙●∙∙∙∙∙"
-                                 "∙∙∙●∙∙∙∙"
-                                 "∙∙∙∙●∙∙∙"
-                                 "∙∙∙∙∙●∙∙"
-                                 "∙∙∙∙∙∙●∙"
-                                 "∙∙∙∙∙∙∙●"])
+;; frame = [ bar , color ]
+(defonce default-spinner-frames [["▰▱▱▱▱▱▱" 22]
+                                 ["▰▰▱▱▱▱▱" 23]
+                                 ["▰▰▰▱▱▱▱" 28]
+                                 ["▰▰▰▰▱▱▱" 29]
+                                 ["▰▰▰▰▰▱▱" 34]
+                                 ["▰▰▰▰▰▰▱" 35]
+                                 ["▰▰▰▰▰▰▰" 40]])
 
 (defonce default-spinner-frame-timeout 125)
 
-(defn spinner [{:keys [msg loading-fn? frames timeout]
+(defonce default-spinner-color 40)
+
+(defn spinner [{:keys [msg loading-fn? frames timeout color]
                 :or   {frames  default-spinner-frames
-                       timeout default-spinner-frame-timeout}}]
+                       timeout default-spinner-frame-timeout
+                       color   default-spinner-color}}]
   (while (loading-fn?)
-    (doseq [frame frames]
-      (print-cr (str msg " " frame))
-      (Thread/sleep timeout)))
+    (doseq [[bar bar-color] frames]
+      (let [bar-color (if (some? bar-color) bar-color color)]
+        (print-cr (str (with-fg-color color msg) " " (with-fg-color bar-color bar)))
+        (Thread/sleep timeout))))
   (erase-cur-line)
   (move-cursor-to-col 1))
+
+;; https://github.com/spectreconsole/spectre.console/blob/main/src/Spectre.Console/Rendering/Borders/Tables/SquareTableBorder.cs
+(defn table
+  ([ks rows & {:keys [header-color row-color-1 row-color-2]
+               :or   {header-color 40
+                      row-color-1  40
+                      row-color-2  28}}]
+   (when (seq rows)
+     (let [widths     (map
+                        (fn [k]
+                          (apply max (count (str k)) (map #(count (str (get % k))) rows)))
+                        ks)
+           spacers    (map #(apply str (repeat % "─")) widths)
+           fmts       (map #(str "%" % "s") widths)
+
+           fmt-fn     (fn [color]
+                        (fn [leader divider trailer row]
+                          (str leader
+                               (apply str (interpose divider
+                                                     (for [[col fmt] (map vector (map #(get row %) ks) fmts)]
+                                                       (if (some? color)
+                                                         (with-fg-color color (format fmt (str col)))
+                                                         (format fmt (str col))))))
+                               trailer)))
+
+           fmt-border (fmt-fn nil)
+           fmt-header (fmt-fn header-color)
+           fmt-row-1  (fmt-fn row-color-1)
+           fmt-row-2  (fmt-fn row-color-2)]
+       (newline)
+       ;; header
+       (println (fmt-border "┌─" "─┬─" "─┐" (zipmap ks spacers)))
+       (println (fmt-header "│ " " │ " " │" (zipmap ks ks)))
+       (println (fmt-border "├─" "─┼─" "─┤" (zipmap ks spacers)))
+       ;; body
+       (->> rows
+            (map-indexed (fn [i row]
+                           (if (even? i)
+                             (println (fmt-row-1 "│ " " │ " " │" row))
+                             (println (fmt-row-2 "│ " " │ " " │" row)))))
+            doall)
+       ;; footer
+       (println (fmt-border "└─" "─┴─" "─┘" (zipmap ks spacers))))))
+  ([rows] (table (keys (first rows)) rows)))
+
+(comment
+
+  (table
+    [{:name "test"}
+     {:name "tes2"}]
+    )
+
+  (print (str (with-fg-color 28 "test")
+              " and normal"
+              (with-fg-color 57 "anothrr")
+              ))
+  (print "test")
+
+  )
