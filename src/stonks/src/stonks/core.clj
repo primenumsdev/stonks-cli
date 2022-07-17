@@ -227,7 +227,8 @@
     (term/printf "Performance: %s\n" (pct (:total-perf @data-task)))
     (term/printf "Best performer: %s\n" (:best-perf @data-task))
     (term/printf "Worst performer: %s\n" (:worst-perf @data-task))
-    (term/printf "Allocation: %s\n" (:ticker-alloc @data-task))
+    (term/println "\nAllocation:")
+    (term/allocation-chart (:ticker-alloc @data-task))
     (term/newline)))
 
 (defn get-holdings-data []
@@ -266,8 +267,8 @@
   (let [trans (db/get :transactions)]
     (term/println "Transactions:")
     (term/table (mapv
-                   #(zipmap [:type :ticker :amount :price :currency :time] %)
-                   trans))
+                  #(zipmap [:type :ticker :amount :price :currency :time] %)
+                  trans))
     (term/newline)))
 
 (defn menu []

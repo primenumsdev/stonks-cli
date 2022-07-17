@@ -4,7 +4,8 @@
   (:import (java.io File InputStreamReader OutputStreamWriter BufferedReader)
            (java.lang ProcessBuilder ProcessBuilder$Redirect)
            (java.util ArrayList List Vector)
-           (java.nio.charset Charset)))
+           (java.nio.charset Charset)
+           (java.math RoundingMode)))
 
 ;; ANSI terminal interaction
 ;; https://en.wikipedia.org/wiki/ANSI_escape_code
@@ -112,10 +113,17 @@
   (str (with-csi (str "38;5;" id "m" txt))
        (with-csi "0m")))
 
+(defn with-bg-color [id txt]
+  (str (with-csi (str "48;5;" id "m" txt))
+       (with-csi "0m")))
+
 (defn set-fg-color [id]
   (csi (str "38;5;" id "m")))
 
-(defn reset-fg-color []
+(defn set-bg-color [id]
+  (csi (str "48;5;" id "m")))
+
+(defn reset-colors []
   (csi "0m"))
 
 (defn print-at
@@ -299,6 +307,26 @@
        (println (fmt-border "└─" "─┴─" "─┘" (zipmap ks spacers))))))
   ([rows] (table (keys (first rows)) rows)))
 
+(defn allocation-chart [alloc-map]
+  (let [ks     (keys alloc-map)
+        vs     (vals alloc-map)
+        legend (atom {})]
+    (doseq [v vs
+            :let [color (rand-int 231)
+                  bar   (.divide (bigdec v) 2M RoundingMode/CEILING)
+                  i     (.indexOf vs v)
+                  k     (nth ks i)]]
+      (swap! legend assoc k {:percent v :color color})
+      (print (with-bg-color color (str/join "" (repeat bar " ")))))
+    (newline)
+    (doseq [k (keys @legend)
+            :let [{:keys [percent color]} (get @legend k)]]
+      (print (str (with-fg-color color "■")
+                  " " k " " percent "%"
+                  "  ")))
+    (newline)))
+
+
 (comment
 
   (table
@@ -311,5 +339,15 @@
               (with-fg-color 57 "anothrr")
               ))
   (print "test")
+
+
+  (allocation-chart {:AAPL 82
+                     :AMZN 6
+                     :NFLX 4
+                     :XOM  10})
+
+  (sort [1 5 82 2 3 67 3])
+
+  (print (with-bg-color 40 "   "))
 
   )
