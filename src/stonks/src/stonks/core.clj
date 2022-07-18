@@ -228,7 +228,8 @@
     (term/printf "Best performer: %s\n" (:best-perf @data-task))
     (term/printf "Worst performer: %s\n" (:worst-perf @data-task))
     (term/println "\nAllocation:")
-    (term/allocation-chart (:ticker-alloc @data-task))
+    (term/allocation-chart (:ticker-alloc @data-task)
+                           {:title "Assets"})
     (term/newline)))
 
 (defn get-holdings-data []

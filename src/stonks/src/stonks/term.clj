@@ -334,12 +334,12 @@
                   separator-space 2
                   used-space      (+ icon-space item-space separator-space)]]
       (vswap! left-over-space - used-space)
+      ;; todo: fix if left-over-space = 0 it's ok to print here but need to reset left-over-space
       (if (> @left-over-space 0)
         (print (str icon item separator))
-        (do
+        (let [left-space (+ used-space @left-over-space)]
           ;; end current line filled with empty spaces
-          (let [left-space (+ used-space @left-over-space)]
-            (print (str (format (str "%" left-space "s") " ") " │\n")))
+          (print (str (format (str "%" left-space "s") " ") " │\n"))
           ;; start a new line
           (print (str "│ " icon item separator))
           (vreset! left-over-space (- width used-space)))))
@@ -358,8 +358,58 @@
                 empty-spaces    (format (str "%" left-over-space "s") " ")]]
     (print (str "│ " icon item empty-spaces " │\n"))))
 
-(defn allocation-chart [alloc-map & {:keys [width legend-pos]
+(defn header [width title border]
+  (let [title-space      (count title)
+        half-w           (/ width 2)
+        half-t           (/ title-space 2)
+        pre-title-space  (- half-w half-t 1)
+        post-title-space (if (even? title-space)
+                           pre-title-space
+                           (inc pre-title-space))]
+    (str (apply str (repeat pre-title-space border))
+         " " title " "
+         (apply str (repeat post-title-space border)))))
+
+(defn border [leader trailer row]
+  (str leader (format (str "%" (count row) "s") row) trailer))
+
+(defn panel [txt & {:keys [width title]
+                    :or   {width 50
+                           title "Panel"}}]
+  (let [words           (-> txt
+                            (str/replace "\n" "")
+                            (str/split #"\s+"))
+        head-lines      (header width title "─")
+        lines           (apply str (repeat width "─"))
+        left-over-space (volatile! width)]
+    ;; header
+    (println (border "┌─" "─┐" head-lines))
+    ;; panel body
+    (print "│ ")
+    (doseq [word words
+            :let [word-space      (count word)
+                  separator       " "
+                  separator-space 1
+                  used-space      (+ word-space separator-space)]]
+      (vswap! left-over-space - used-space)
+      (if (> @left-over-space 0)
+        (print (str word separator))
+        (let [left-space (+ used-space @left-over-space)]
+          ;; end current line filled with empty spaces
+          (print (str (format (str "%" left-space "s") " ") " │\n"))
+          ;; start a new line
+          (print (str "│ " word separator))
+          (vreset! left-over-space (- width used-space)))))
+    ;; fill in the rest with empty spaces
+    (if (> @left-over-space 0)
+      (print (str (format (str "%" @left-over-space "s") " ") " │\n"))
+      (print " │\n"))
+    ;; footer
+    (println (border "└─" "─┘" lines))))
+
+(defn allocation-chart [alloc-map & {:keys [width title legend-pos]
                                      :or   {width      50
+                                            title      "Allocation"
                                             legend-pos :horizontal}}]
   ;; todo: validate that sum of allocation percents is 100
   (let [ks         (keys alloc-map)
@@ -367,10 +417,9 @@
         legend-map (volatile! {})
         spaces     (apply str (repeat width " "))
         lines      (apply str (repeat width "─"))
-        fmt        (fn [leader trailer row]
-                     (str leader (format (str "%" (count row) "s") row) trailer))]
+        head-lines (header width title "─")]
     ;; header
-    (println (fmt "┌─" "─┐" lines))
+    (println (border "┌─" "─┐" head-lines))
     ;; chart body
     (print "│ ")
     ;; todo: show | for items where bar-width will be ~0 on the given scale
@@ -380,14 +429,22 @@
       (print (with-bg-color color (apply str (repeat bar-width " ")))))
     (print " │\n")
     ;; space
-    (println (fmt "│ " " │" spaces))
+    (println (border "│ " " │" spaces))
     (case legend-pos
       :horizontal (hlegend @legend-map width)
       :vertical (vlegend @legend-map width))
-    (println (fmt "└─" "─┘" lines))))
+    (println (border "└─" "─┘" lines))))
 
 
 (comment
+
+  (panel "Lorem ipsum dolor sit amet, consectetur adipiscing elit,
+  sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.
+  Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi
+  ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit
+  in voluptate velit esse cillum dolore eu fugiat nulla pariatur.
+  Excepteur sint occaecat cupidatat non proident, sunt in culpa qui
+  officia deserunt mollit anim id est laborum.")
 
   (allocation-chart {:AAPL 82
                      :AMZN 6
@@ -408,6 +465,7 @@
                      :ABNORM 10
                      :X1     5
                      :Y2     5
-                     })
+                     }
+                    {:title "Tes"})
 
   )
