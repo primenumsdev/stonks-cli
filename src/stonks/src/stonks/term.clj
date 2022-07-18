@@ -385,27 +385,56 @@
     ;; header
     (println (border "┌─" "─┐" head-lines))
     ;; panel body
-    (print "│ ")
     (doseq [word words
             :let [word-space      (count word)
                   separator       " "
-                  separator-space 1
-                  used-space      (+ word-space separator-space)]]
-      (vswap! left-over-space - used-space)
+                  separator-space 1]]
+      (when (= @left-over-space width)
+        ;; when a new line started
+        (print (str "│ ")))
+      (vswap! left-over-space - word-space)
       (if (> @left-over-space 0)
-        (print (str word separator))
-        (let [left-space (+ used-space @left-over-space)]
-          ;; end current line filled with empty spaces
-          (print (str (format (str "%" left-space "s") " ") " │\n"))
-          ;; start a new line
-          (print (str "│ " word separator))
-          (vreset! left-over-space (- width used-space)))))
+        (do
+          ;; when it's enough space for a word with a space
+          (vswap! left-over-space - separator-space)
+          (print (str word separator)))
+        (if (= @left-over-space 0)
+          (do
+            ;; when it's enough space only for a word - line end
+            (vreset! left-over-space width)
+            (print (str word " │\n")))
+          ;; when space is not enough for a word - line end and new line
+          (let [left-space   (+ word-space @left-over-space)
+                empty-spaces (if (> left-space 0)
+                               (format (str "%" left-space "s") " ")
+                               "")]
+            ;; end current line filled with empty spaces
+            (print (str empty-spaces " │\n"))
+            ;; start a new line
+            (print (str "│ " word separator))
+            (vreset! left-over-space (- width word-space separator-space))))))
+    ;; end unfinished line if any
     ;; fill in the rest with empty spaces
-    (if (> @left-over-space 0)
-      (print (str (format (str "%" @left-over-space "s") " ") " │\n"))
-      (print " │\n"))
+    (when (and (> @left-over-space 0)
+               (< @left-over-space width))
+      (print (str (format (str "%" @left-over-space "s") " ") " │\n")))
     ;; footer
     (println (border "└─" "─┘" lines))))
+
+(defn definition-list [dl-map & {:keys [width title]
+                                 :or   {width 50
+                                        title "Definitions"}}]
+  (let [txt (StringBuilder.)]
+    (doseq [[k v] dl-map
+            :let [k-space    (count k)
+                  v-space    (count v)
+                  used-space (+ k-space v-space)
+                  left-space (- width used-space)
+                  dots       (apply str (repeat left-space "."))]]
+      (.append txt (str k dots v " ")))
+    (panel (.toString txt) {:title title
+                            :width width
+                            })))
 
 (defn allocation-chart [alloc-map & {:keys [width title legend-pos]
                                      :or   {width      50
@@ -437,6 +466,22 @@
 
 
 (comment
+
+  (table [{:title "Total spent"
+           :val   "57863.86USD"}
+          {:title "Current evaluation"
+           :val   "16204.13USD"}
+          {:title "Total profit"
+           :val   "-41659.73USD"}
+          {:title "Performance"
+           :val   "-72.00%"}])
+
+  (definition-list {"Total-spent"        "57863.86USD"
+                    "Current-evaluation" "16204.13USD"
+                    "Total-profit"       "-41659.73USD"
+                    "Performance"        "-72.00%"}
+                   {:width 50
+                    :title "Stats"})
 
   (panel "Lorem ipsum dolor sit amet, consectetur adipiscing elit,
   sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.

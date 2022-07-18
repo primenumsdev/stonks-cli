@@ -183,7 +183,7 @@
                                      {}))
         ticker-alloc (allocation ticker-amt)
         cur-val      (reduce-kv sum-cur-val 0 ticker-amt)
-        total-profit (usd (- cur-val total-spent))
+        total-profit (- cur-val total-spent)
         total-perf   (perf cur-val total-spent)
         holdings     (->> ticker-amt
                           (reduce-kv (fn [h k v]
@@ -220,11 +220,17 @@
 (defn stats []
   (let [data-task (future (get-stats-data))]
     (future-spinner data-task)
+    (term/definition-list {"Total-spent" (usd (:total-spent @data-task))
+                           "Current-evaluation" (usd (:cur-val @data-task))
+                           "Total-profit" (usd (:total-profit @data-task))
+                           "Performance" (pct (:total-perf @data-task))}
+                          {:width 50
+                           :title "Stats"})
     (term/println "Stats:\n")
-    (term/printf "Total spent: %s\n" (usd (:total-spent @data-task)))
-    (term/printf "Current evaluation: %s\n" (usd (:cur-val @data-task)))
-    (term/printf "Total profit: %s\n" (:total-profit @data-task))
-    (term/printf "Performance: %s\n" (pct (:total-perf @data-task)))
+    ;(term/printf "Total spent: %s\n" (usd (:total-spent @data-task)))
+    ;(term/printf "Current evaluation: %s\n" (usd (:cur-val @data-task)))
+    ;(term/printf "Total profit: %s\n" (:total-profit @data-task))
+    ;(term/printf "Performance: %s\n" (pct (:total-perf @data-task)))
     (term/printf "Best performer: %s\n" (:best-perf @data-task))
     (term/printf "Worst performer: %s\n" (:worst-perf @data-task))
     (term/println "\nAllocation:")
