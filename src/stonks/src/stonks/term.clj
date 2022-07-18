@@ -322,16 +322,53 @@
         (vswap! total-remaining - distributed)))
     @res))
 
-(defn allocation-chart [alloc-map & {:keys [width]
-                                     :or   {width 50}}]
+(defn hlegend [legend-map width]
+  (print "│ ")
+  (let [left-over-space (volatile! width)]
+    (doseq [[title {:keys [percent color]}] legend-map
+            :let [icon            (str (with-fg-color color "■") " ")
+                  icon-space      2
+                  item            (str title " " percent "%")
+                  item-space      (count item)
+                  separator       "  "
+                  separator-space 2
+                  used-space      (+ icon-space item-space separator-space)]]
+      (vswap! left-over-space - used-space)
+      (if (> @left-over-space 0)
+        (print (str icon item separator))
+        (do
+          ;; end current line filled with empty spaces
+          (let [left-space (+ used-space @left-over-space)]
+            (print (str (format (str "%" left-space "s") " ") " │\n")))
+          ;; start a new line
+          (print (str "│ " icon item separator))
+          (vreset! left-over-space (- width used-space)))))
+    ;; fill in the rest with empty spaces
+    (if (> @left-over-space 0)
+      (print (str (format (str "%" @left-over-space "s") " ") " │\n"))
+      (print " │\n"))))
+
+(defn vlegend [legend-map width]
+  (doseq [[title {:keys [percent color]}] legend-map
+          :let [icon            (str (with-fg-color color "■") " ")
+                icon-space      2
+                item            (str title " " percent "%")
+                item-space      (count item)
+                left-over-space (- width icon-space item-space)
+                empty-spaces    (format (str "%" left-over-space "s") " ")]]
+    (print (str "│ " icon item empty-spaces " │\n"))))
+
+(defn allocation-chart [alloc-map & {:keys [width legend-pos]
+                                     :or   {width      50
+                                            legend-pos :horizontal}}]
   ;; todo: validate that sum of allocation percents is 100
-  (let [ks     (keys alloc-map)
-        vs     (vals alloc-map)
-        legend (volatile! {})
-        spaces (apply str (repeat width " "))
-        lines  (apply str (repeat width "─"))
-        fmt    (fn [leader trailer row]
-                 (str leader (format (str "%" (count row) "s") row) trailer))]
+  (let [ks         (keys alloc-map)
+        vs         (vals alloc-map)
+        legend-map (volatile! {})
+        spaces     (apply str (repeat width " "))
+        lines      (apply str (repeat width "─"))
+        fmt        (fn [leader trailer row]
+                     (str leader (format (str "%" (count row) "s") row) trailer))]
     ;; header
     (println (fmt "┌─" "─┐" lines))
     ;; chart body
@@ -339,19 +376,14 @@
     ;; todo: show | for items where bar-width will be ~0 on the given scale
     (doseq [[k v bar-width] (map vector ks vs (distribute width vs))
             :let [color (rand-int 231)]]
-      (vswap! legend assoc k {:percent v :color color})
+      (vswap! legend-map assoc k {:percent v :color color})
       (print (with-bg-color color (apply str (repeat bar-width " ")))))
     (print " │\n")
-    ;; legend
+    ;; space
     (println (fmt "│ " " │" spaces))
-    (doseq [[title {:keys [percent color]}] @legend
-            :let [icon            (str (with-fg-color color "■") " ")
-                  icon-space      2
-                  item            (str title " " percent "%")
-                  item-space      (count item)
-                  left-over-space (- width icon-space item-space)
-                  empty-spaces    (format (str "%" left-over-space "s") " ")]]
-      (print (str "│ " icon item empty-spaces " │\n")))
+    (case legend-pos
+      :horizontal (hlegend @legend-map width)
+      :vertical (vlegend @legend-map width))
     (println (fmt "└─" "─┘" lines))))
 
 
@@ -365,5 +397,17 @@
   (allocation-chart {:AAPL 34.15M
                      :AMZN 58.54M
                      :NFLX 7.32M})
+
+  (allocation-chart {:AAPL   24
+                     :AZM    22
+                     :XOM    10
+                     :NFLX   3
+                     :AMZN   5
+                     :TPL    12
+                     :HES    4
+                     :ABNORM 10
+                     :X1     5
+                     :Y2     5
+                     })
 
   )
