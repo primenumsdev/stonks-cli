@@ -1,11 +1,10 @@
 (ns stonks.term
-  (:refer-clojure :exclude [print printf println read-line newline *in* *out* flush])
+  (:refer-clojure :exclude [*in* *out* flush newline print printf println read-line])
   (:require [clojure.string :as str])
-  (:import (java.io File InputStreamReader OutputStreamWriter BufferedReader)
+  (:import (java.io BufferedReader File InputStreamReader OutputStreamWriter)
            (java.lang ProcessBuilder ProcessBuilder$Redirect)
-           (java.util ArrayList List Vector)
            (java.nio.charset Charset)
-           (java.math RoundingMode)))
+           (java.util ArrayList List Vector)))
 
 ;; ANSI terminal interaction
 ;; https://en.wikipedia.org/wiki/ANSI_escape_code
@@ -263,7 +262,6 @@
   (erase-cur-line)
   (move-cursor-to-col 1))
 
-;; https://github.com/spectreconsole/spectre.console/blob/main/src/Spectre.Console/Rendering/Borders/Tables/SquareTableBorder.cs
 (defn table
   ([ks rows & {:keys [header-color row-color-1 row-color-2]
                :or   {header-color 40
@@ -276,7 +274,6 @@
                         ks)
            spacers    (map #(apply str (repeat % "─")) widths)
            fmts       (map #(str "%" % "s") widths)
-
            fmt-fn     (fn [color]
                         (fn [leader divider trailer row]
                           (str leader
@@ -286,7 +283,6 @@
                                                          (with-fg-color color (format fmt (str col)))
                                                          (format fmt (str col))))))
                                trailer)))
-
            fmt-border (fmt-fn nil)
            fmt-header (fmt-fn header-color)
            fmt-row-1  (fmt-fn row-color-1)
@@ -307,47 +303,67 @@
        (println (fmt-border "└─" "─┴─" "─┘" (zipmap ks spacers))))))
   ([rows] (table (keys (first rows)) rows)))
 
-(defn allocation-chart [alloc-map]
+(defn zip [c1 c2]
+  (map vector c1 c2))
+
+(defn distribute [total ratios]
+  (let [ratios          (map float ratios)
+        total-ratio     (volatile! (reduce + ratios))
+        total-remaining (volatile! total)
+        res             (volatile! [])
+        mins            (repeat (count ratios) 0)]
+    (doseq [[ratio minimum] (zip ratios mins)]
+      (let [distributed (if (> @total-ratio 0)
+                          (max minimum
+                               (int (Math/round ^float (* ratio (/ @total-remaining @total-ratio)))))
+                          @total-remaining)]
+        (vswap! res conj distributed)
+        (vswap! total-ratio - ratio)
+        (vswap! total-remaining - distributed)))
+    @res))
+
+(defn allocation-chart [alloc-map & {:keys [width]
+                                     :or   {width 50}}]
+  ;; todo: validate that sum of allocation percents is 100
   (let [ks     (keys alloc-map)
         vs     (vals alloc-map)
-        legend (atom {})]
-    (doseq [v vs
-            :let [color (rand-int 231)
-                  bar   (.divide (bigdec v) 2M RoundingMode/CEILING)
-                  i     (.indexOf vs v)
-                  k     (nth ks i)]]
-      (swap! legend assoc k {:percent v :color color})
-      (print (with-bg-color color (str/join "" (repeat bar " ")))))
-    (newline)
-    (doseq [k (keys @legend)
-            :let [{:keys [percent color]} (get @legend k)]]
-      (print (str (with-fg-color color "■")
-                  " " k " " percent "%"
-                  "  ")))
-    (newline)))
+        legend (volatile! {})
+        spaces (apply str (repeat width " "))
+        lines  (apply str (repeat width "─"))
+        fmt    (fn [leader trailer row]
+                 (str leader (format (str "%" (count row) "s") row) trailer))]
+    ;; header
+    (println (fmt "┌─" "─┐" lines))
+    ;; chart body
+    (print "│ ")
+    ;; todo: show | for items where bar-width will be ~0 on the given scale
+    (doseq [[k v bar-width] (map vector ks vs (distribute width vs))
+            :let [color (rand-int 231)]]
+      (vswap! legend assoc k {:percent v :color color})
+      (print (with-bg-color color (apply str (repeat bar-width " ")))))
+    (print " │\n")
+    ;; legend
+    (println (fmt "│ " " │" spaces))
+    (doseq [[title {:keys [percent color]}] @legend
+            :let [icon            (str (with-fg-color color "■") " ")
+                  icon-space      2
+                  item            (str title " " percent "%")
+                  item-space      (count item)
+                  left-over-space (- width icon-space item-space)
+                  empty-spaces    (format (str "%" left-over-space "s") " ")]]
+      (print (str "│ " icon item empty-spaces " │\n")))
+    (println (fmt "└─" "─┘" lines))))
 
 
 (comment
-
-  (table
-    [{:name "test"}
-     {:name "tes2"}]
-    )
-
-  (print (str (with-fg-color 28 "test")
-              " and normal"
-              (with-fg-color 57 "anothrr")
-              ))
-  (print "test")
-
 
   (allocation-chart {:AAPL 82
                      :AMZN 6
                      :NFLX 4
                      :XOM  10})
 
-  (sort [1 5 82 2 3 67 3])
-
-  (print (with-bg-color 40 "   "))
+  (allocation-chart {:AAPL 34.15M
+                     :AMZN 58.54M
+                     :NFLX 7.32M})
 
   )
