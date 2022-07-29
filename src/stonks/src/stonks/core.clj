@@ -1,9 +1,9 @@
 (ns stonks.core
   (:require [clojure.java.io :as io]
             [clojure.core.memoize :as memo]
-            [stonks.db :as db]
-            [stonks.api :as api]
-            [stonks.term :as term])
+            [cljcloud.emdb :as db]
+            [cljcloud.clj-term :as term]
+            [stonks.api :as api])
   (:import (java.util Date)
            (java.math RoundingMode))
   (:gen-class))
@@ -220,10 +220,10 @@
 (defn stats []
   (let [data-task (future (get-stats-data))]
     (future-spinner data-task)
-    (term/definition-list {"Total-spent" (usd (:total-spent @data-task))
+    (term/definition-list {"Total-spent"        (usd (:total-spent @data-task))
                            "Current-evaluation" (usd (:cur-val @data-task))
-                           "Total-profit" (usd (:total-profit @data-task))
-                           "Performance" (pct (:total-perf @data-task))}
+                           "Total-profit"       (usd (:total-profit @data-task))
+                           "Performance"        (pct (:total-perf @data-task))}
                           {:width 50
                            :title "Stats"})
     (term/println "Stats:\n")

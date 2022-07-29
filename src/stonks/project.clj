@@ -1,11 +1,13 @@
 (defproject stonks "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
-  :license {:name "EPL-2.0 OR GPL-2.0-or-later WITH Classpath-exception-2.0"
-            :url  "https://www.eclipse.org/legal/epl-2.0/"}
+  :repositories [["github" {:url      "https://maven.pkg.github.com/cljcloud/emdb"
+                            :username "private-token"
+                            :password :env/GITHUB_TOKEN}]]
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [org.clojure/core.memoize "1.0.257"]
-                 [com.taoensso/nippy "3.1.3"]
+                 [cljcloud/emdb "0.1.0"]
+                 [cljcloud/clj-term "0.1.0"]
                  [metosin/jsonista "0.3.6"]
                  [org.clj-commons/clj-http-lite "0.4.392"]]
   :main stonks.core
